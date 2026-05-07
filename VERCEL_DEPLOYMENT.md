@@ -30,10 +30,10 @@ Optional feature keys:
 
 - `GROQ_MODEL_ID`: choose a Groq model; defaults to `llama-3.3-70b-versatile`.
 - `YOUTUBE_API_KEY`: enables YouTube tutorial search.
-- `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`: enable cloud study-session history.
+- `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`: enable Google sign-in and saved chat history.
 - `COMPOSIO_API_KEY` and `COMPOSIO_CONNECTED_ACCOUNT_ID`: enable Google Docs export.
 
-The app still works with only `GROQ_API_KEY`; local browser storage is used if Supabase is not configured.
+The app still works with only `GROQ_API_KEY` in guest mode. Guest chats are temporary and are cleared when the guest signs out.
 
 ## 3. Supabase Setup
 
@@ -46,6 +46,13 @@ If you want cloud history, open Supabase SQL Editor and run:
 Use the SQL from `SUPABASE_SCHEMA.sql`.
 
 Important: `SUPABASE_SERVICE_ROLE_KEY` must only be used server-side in Vercel environment variables. Do not expose it as `NEXT_PUBLIC_*`.
+
+For Google sign-in, also enable the Google provider in Supabase Auth and add your local and deployed site URLs to the allowed redirect URLs, for example:
+
+```text
+http://localhost:3000
+https://your-vercel-app.vercel.app
+```
 
 ## 4. Run Locally
 
@@ -102,4 +109,5 @@ Click **Deploy**. After deployment, open the Vercel URL and submit a learning re
 - Mentor follow-up chat: `app/api/mentor/route.ts`
 - Google Docs export: `app/api/google-doc/route.ts`
 - Supabase session persistence: `app/api/sessions/route.ts`
-- Dashboard UI: `app/page.tsx`
+- Google auth helpers: `app/api/auth/google/start/route.ts` and `app/api/auth/profile/route.ts`
+- Homepage and workspace UI: `app/page.tsx`

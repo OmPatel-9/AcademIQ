@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "AcademIQ",
-  description: "A premium AI tutor dashboard powered by specialized learning agents."
+  description: "A focused study workspace for lessons, roadmaps, quizzes, flashcards, and saved chats."
 };
 
 export default function RootLayout({

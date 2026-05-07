@@ -54,6 +54,17 @@ function strings(value: unknown): string[] {
   return Array.isArray(value) ? value.map(String).map((item) => item.trim()).filter(Boolean) : [];
 }
 
+function difficultyGuidance(value: string) {
+  const difficulty = value.toLowerCase();
+  if (difficulty.includes("advanced")) {
+    return "Advanced: assume prior fundamentals, use precise terminology, include tradeoffs, edge cases, and harder quiz distractors.";
+  }
+  if (difficulty.includes("intermediate")) {
+    return "Intermediate: assume the learner knows basics, connect concepts, include applied examples, and use moderate quiz distractors.";
+  }
+  return "Beginner: define jargon, go step by step, use concrete examples, keep practice approachable, and avoid unexplained prerequisites.";
+}
+
 function attachmentContext(attachments: Attachment[] = []) {
   if (!attachments.length) {
     return "No attachments were provided.";
@@ -147,12 +158,20 @@ function normalizeQuiz(value: unknown) {
   }
 
   return value
-    .map((item) => ({
-      question: cleanText(item?.question),
-      choices: Array.isArray(item?.choices) ? item.choices.map(String).slice(0, 4) : [],
-      answer: cleanText(item?.answer),
-      explanation: cleanText(item?.explanation)
-    }))
+    .map((item) => {
+      const choices = Array.isArray(item?.choices) ? item.choices.map(String).slice(0, 4) : [];
+      const rawAnswer = cleanText(item?.answer);
+      const letterMatch = rawAnswer.trim().match(/^[A-Da-d](?:[).:\s]|$)/);
+      const letterIndex = letterMatch ? "abcd".indexOf(letterMatch[0][0].toLowerCase()) : -1;
+      const answer = choices.includes(rawAnswer) ? rawAnswer : choices[letterIndex] || rawAnswer;
+
+      return {
+        question: cleanText(item?.question),
+        choices,
+        answer,
+        explanation: cleanText(item?.explanation)
+      };
+    })
     .filter((item) => item.question && item.choices.length === 4);
 }
 
@@ -224,6 +243,7 @@ function normalizePack(data: any, request: Required<Pick<StudyPackRequest, "prom
 
 function buildMessages(body: StudyPackRequest): GroqMessage[] {
   const wantsPack = body.generateStudyPack !== false;
+  const difficulty = cleanText(body.difficulty, "Beginner");
   const system = `You are AcademIQ, a premium AI tutor app powered by specialized learning agents.
 Generate the same feature surface as a multi-agent tutoring workspace:
 - Professor: comprehensive knowledge base and core lesson
@@ -255,7 +275,8 @@ ${wantsPack ? "Create a complete study pack." : "Answer directly, but still fill
 
   const user = `Learning request: ${body.prompt}
 Subject/model selector: ${body.subject || "General AI Tutor"}
-Difficulty: ${body.difficulty || "Beginner"}
+Difficulty: ${difficulty}
+Difficulty contract: ${difficultyGuidance(difficulty)}
 Learning style: ${body.learningStyle || "Step-by-step"}
 Selected agent: ${body.agent || "Professor"}
 Citations requested: ${body.citations ? "yes" : "no"}

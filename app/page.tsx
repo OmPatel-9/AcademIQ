@@ -2,6 +2,7 @@
 
 import {
   Activity,
+  ArrowRight,
   BookOpen,
   Briefcase,
   CheckCircle2,
@@ -14,6 +15,8 @@ import {
   Layers,
   Library,
   ListChecks,
+  LogIn,
+  LogOut,
   Map,
   MessageCircle,
   Moon,
@@ -37,6 +40,8 @@ import type { LucideIcon } from "lucide-react";
 
 type ThemeMode = "light" | "dark";
 type Difficulty = "Beginner" | "Intermediate" | "Advanced";
+type AuthStatus = "checking" | "loading" | "ready";
+type AccountMode = "guest" | "google";
 type TabKey =
   | "professor"
   | "roadmap"
@@ -49,6 +54,17 @@ type TabKey =
   | "mindmap"
   | "exports"
   | "googleDocs";
+
+type UserAccount = {
+  mode: AccountMode;
+  id: string;
+  name: string;
+  email?: string;
+  avatarUrl?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  expiresAt?: number;
+};
 
 type AttachmentPayload = {
   name: string;
@@ -150,18 +166,18 @@ const navItems: NavItem[] = [
   { label: "Quizzes", Icon: ListChecks },
   { label: "History", Icon: History },
   { label: "Settings", Icon: Settings },
-  { label: "User Profile", Icon: UserCircle }
+  { label: "Profile", Icon: UserCircle }
 ];
 
 const agents: AgentCard[] = [
-  { title: "Professor", role: "Research and Knowledge Specialist", Icon: BookOpen },
-  { title: "Academic Advisor", role: "Learning Path Designer", Icon: Route },
-  { title: "Research Librarian", role: "Learning Resource Specialist", Icon: Library },
-  { title: "Teaching Assistant", role: "Exercise Creator", Icon: PencilRuler },
-  { title: "Flashcard Agent", role: "Anki Flashcard Creator", Icon: Layers },
-  { title: "Project Idea Agent", role: "Portfolio Project Coach", Icon: Briefcase },
-  { title: "Quiz Generator", role: "Assessment Writer", Icon: CheckCircle2 },
-  { title: "Mentor Agent", role: "Follow-up Tutor", Icon: Sparkles }
+  { title: "Professor", role: "Core lesson and explanations", Icon: BookOpen },
+  { title: "Academic Advisor", role: "Learning path and milestones", Icon: Route },
+  { title: "Research Librarian", role: "Resources and citations", Icon: Library },
+  { title: "Teaching Assistant", role: "Practice and worked solutions", Icon: PencilRuler },
+  { title: "Flashcard Agent", role: "Recall cards for review", Icon: Layers },
+  { title: "Project Idea Agent", role: "Portfolio-ready project prompts", Icon: Briefcase },
+  { title: "Quiz Generator", role: "Checks and explanations", Icon: CheckCircle2 },
+  { title: "Mentor Agent", role: "Follow-up tutoring", Icon: MessageCircle }
 ];
 
 const tabs: { key: TabKey; label: string }[] = [
@@ -186,7 +202,7 @@ const quickStarts = [
 ];
 
 const subjects = [
-  "General AI Tutor",
+  "General Tutor",
   "Computer Science",
   "Mathematics",
   "Data Science",
@@ -197,14 +213,25 @@ const subjects = [
 
 const learningStyles = ["Step-by-step", "Visual", "Socratic", "Practice-first"];
 const difficulties: Difficulty[] = ["Beginner", "Intermediate", "Advanced"];
-const STORAGE_KEY = "academiq_sessions_v2";
-const USER_ID = "guest";
+const GOOGLE_ACCOUNT_KEY = "academiq_google_account_v1";
+const GUEST_ACCOUNT_KEY = "academiq_guest_account_v1";
 
-function newSession(): Session {
+function guestSessionsKey(userId: string) {
+  return `academiq_guest_sessions_${userId}`;
+}
+
+function makeId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function newSession(userId = "guest"): Session {
   const now = new Date().toISOString();
   return {
-    id: crypto.randomUUID(),
-    userId: USER_ID,
+    id: makeId(),
+    userId,
     title: "New study session",
     pack: null,
     messages: [],
@@ -224,6 +251,23 @@ function formatDate(value: string) {
 
 function normalizeSessions(value: unknown): Session[] {
   return Array.isArray(value) ? (value as Session[]).filter((item) => item?.id) : [];
+}
+
+function readJson<T>(storage: Storage, key: string): T | null {
+  try {
+    const item = storage.getItem(key);
+    return item ? (JSON.parse(item) as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+function readStoredSessions(storage: Storage, key: string) {
+  return normalizeSessions(readJson<unknown>(storage, key));
+}
+
+function clearOAuthUrl() {
+  window.history.replaceState({}, document.title, window.location.pathname);
 }
 
 function packToMarkdown(pack: StudyPack) {
@@ -298,12 +342,11 @@ function mindMapHtml(pack: StudyPack) {
   <meta charset="utf-8" />
   <title>${htmlEscape(pack.topic)} Mind Map</title>
   <style>
-    body { margin: 0; font-family: Inter, system-ui, sans-serif; background: #0d1323; color: #f7f3ff; }
+    body { margin: 0; font-family: Inter, system-ui, sans-serif; background: #f4f6f5; color: #161716; }
     main { min-height: 100vh; display: grid; place-items: center; padding: 32px; }
-    .map { width: min(920px, 100%); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
-    .root, .node { border-radius: 18px; padding: 24px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
-    .root { grid-column: 1 / -1; background: linear-gradient(135deg, #8b5cf6, #c026d3 52%, #ec4899); font-size: 28px; font-weight: 800; }
-    .node { background: #172235; border: 1px solid rgba(185,165,255,.24); }
+    .map { width: min(920px, 100%); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .root, .node { border-radius: 8px; padding: 24px; text-align: center; border: 1px solid #d9dfdc; background: #ffffff; }
+    .root { grid-column: 1 / -1; background: #193f36; color: #ffffff; font-size: 28px; font-weight: 800; }
     @media (max-width: 720px) { .map { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -326,17 +369,6 @@ function downloadText(filename: string, content: string, mime = "text/plain") {
   link.download = filename;
   link.click();
   URL.revokeObjectURL(url);
-}
-
-function readLocalSessions() {
-  if (typeof window === "undefined") {
-    return [];
-  }
-  try {
-    return normalizeSessions(JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"));
-  } catch {
-    return [];
-  }
 }
 
 async function readAttachment(file: File): Promise<AttachmentPayload> {
@@ -367,7 +399,10 @@ function ListBlock({ items, empty }: { items: string[]; empty: string }) {
 }
 
 export default function HomePage() {
-  const [theme, setTheme] = useState<ThemeMode>("dark");
+  const [theme, setTheme] = useState<ThemeMode>("light");
+  const [account, setAccount] = useState<UserAccount | null>(null);
+  const [authStatus, setAuthStatus] = useState<AuthStatus>("checking");
+  const [authMessage, setAuthMessage] = useState("");
   const [subject, setSubject] = useState(subjects[0]);
   const [prompt, setPrompt] = useState("");
   const [difficulty, setDifficulty] = useState<Difficulty>("Beginner");
@@ -398,45 +433,225 @@ export default function HomePage() {
   );
 
   useEffect(() => {
-    const localSessions = readLocalSessions();
-    if (localSessions.length) {
-      setSessions(localSessions);
-      setCurrentSession(localSessions[0]);
+    let cancelled = false;
+
+    async function restoreAccount() {
+      setAuthStatus("checking");
+
+      const query = new URLSearchParams(window.location.search);
+      const queryError = query.get("auth_error");
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+      const hashError = hash.get("error_description") || hash.get("error");
+
+      if (queryError || hashError) {
+        setAuthMessage(queryError || hashError || "Google sign-in did not finish.");
+        clearOAuthUrl();
+      }
+
+      const accessToken = hash.get("access_token");
+      if (accessToken) {
+        setAuthStatus("loading");
+        clearOAuthUrl();
+        try {
+          const response = await fetch("/api/auth/profile", {
+            headers: { Authorization: `Bearer ${accessToken}` }
+          });
+          const profile = await response.json();
+          if (!response.ok) {
+            throw new Error(profile.error || "Google sign-in could not be verified.");
+          }
+
+          const expiresIn = Number(hash.get("expires_in") || "3600");
+          const nextAccount: UserAccount = {
+            mode: "google",
+            id: String(profile.id),
+            name: String(profile.name || profile.email || "Google user"),
+            email: String(profile.email || ""),
+            avatarUrl: String(profile.avatarUrl || ""),
+            accessToken,
+            refreshToken: hash.get("refresh_token") || undefined,
+            expiresAt: Date.now() + Math.max(expiresIn - 60, 60) * 1000
+          };
+
+          localStorage.setItem(GOOGLE_ACCOUNT_KEY, JSON.stringify(nextAccount));
+          sessionStorage.removeItem(GUEST_ACCOUNT_KEY);
+          if (!cancelled) {
+            setAccount(nextAccount);
+            setAuthMessage("");
+            setAuthStatus("ready");
+          }
+          return;
+        } catch (caughtError) {
+          if (!cancelled) {
+            setAccount(null);
+            setAuthMessage(caughtError instanceof Error ? caughtError.message : "Google sign-in failed.");
+            setAuthStatus("ready");
+          }
+          return;
+        }
+      }
+
+      const savedGoogle = readJson<UserAccount>(localStorage, GOOGLE_ACCOUNT_KEY);
+      if (savedGoogle?.mode === "google" && savedGoogle.accessToken) {
+        if (savedGoogle.expiresAt && savedGoogle.expiresAt <= Date.now()) {
+          localStorage.removeItem(GOOGLE_ACCOUNT_KEY);
+          setAuthMessage("Your Google session expired. Sign in again to see your saved chats.");
+        } else if (!cancelled) {
+          setAccount(savedGoogle);
+          setAuthStatus("ready");
+          return;
+        }
+      }
+
+      const savedGuest = readJson<UserAccount>(sessionStorage, GUEST_ACCOUNT_KEY);
+      if (savedGuest?.mode === "guest") {
+        setAccount(savedGuest);
+      }
+
+      if (!cancelled) {
+        setAuthStatus("ready");
+      }
     }
 
-    fetch(`/api/sessions?userId=${USER_ID}`)
-      .then((response) => response.json())
-      .then((payload) => {
-        setSupabaseEnabled(Boolean(payload.enabled));
-        if (Array.isArray(payload.sessions) && payload.sessions.length) {
-          setSessions(payload.sessions);
-          setCurrentSession(payload.sessions[0]);
-        }
-      })
-      .catch(() => setSupabaseEnabled(false));
+    restoreAccount();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
-  }, [sessions]);
+    let cancelled = false;
+
+    async function loadSessions() {
+      if (!account) {
+        return;
+      }
+
+      setError("");
+      setQuizScore("");
+      setQuizAnswers({});
+      setSearchTerm("");
+
+      if (account.mode === "guest") {
+        setSupabaseEnabled(false);
+        const localSessions = readStoredSessions(sessionStorage, guestSessionsKey(account.id));
+        if (!cancelled) {
+          setSessions(localSessions);
+          setCurrentSession(localSessions[0] || newSession(account.id));
+        }
+        return;
+      }
+
+      if (!account.accessToken) {
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/sessions", {
+          headers: { Authorization: `Bearer ${account.accessToken}` }
+        });
+        const payload = await response.json();
+
+        if (!response.ok) {
+          throw new Error(payload.error || "Saved chats could not be loaded.");
+        }
+
+        if (!cancelled) {
+          const cloudSessions = normalizeSessions(payload.sessions);
+          setSupabaseEnabled(Boolean(payload.enabled));
+          setSessions(cloudSessions);
+          setCurrentSession(cloudSessions[0] || newSession(account.id));
+        }
+      } catch (caughtError) {
+        if (!cancelled) {
+          setSupabaseEnabled(false);
+          setSessions([]);
+          setCurrentSession(newSession(account.id));
+          setError(caughtError instanceof Error ? caughtError.message : "Saved chats could not be loaded.");
+        }
+      }
+    }
+
+    loadSessions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [account]);
+
+  function startGuest() {
+    const guestAccount: UserAccount = {
+      mode: "guest",
+      id: `guest:${makeId()}`,
+      name: "Guest"
+    };
+    sessionStorage.setItem(GUEST_ACCOUNT_KEY, JSON.stringify(guestAccount));
+    setAccount(guestAccount);
+    setAuthMessage("");
+    setSessions([]);
+    setCurrentSession(newSession(guestAccount.id));
+  }
+
+  function startGoogleSignIn() {
+    window.location.href = "/api/auth/google/start";
+  }
+
+  function signOut() {
+    if (account?.mode === "guest") {
+      sessionStorage.removeItem(guestSessionsKey(account.id));
+    }
+    sessionStorage.removeItem(GUEST_ACCOUNT_KEY);
+    localStorage.removeItem(GOOGLE_ACCOUNT_KEY);
+    setAccount(null);
+    setSessions([]);
+    setCurrentSession(newSession());
+    setPrompt("");
+    setFiles([]);
+    setError("");
+    setQuizScore("");
+    setQuizAnswers({});
+    setActiveTab("professor");
+    setAuthStatus("ready");
+  }
 
   function persistSession(nextSession: Session) {
-    const updated = { ...nextSession, updatedAt: new Date().toISOString() };
+    if (!account) {
+      return;
+    }
+
+    const updated = { ...nextSession, userId: account.id, updatedAt: new Date().toISOString() };
     setCurrentSession(updated);
     setSessions((current) => {
       const rest = current.filter((item) => item.id !== updated.id);
-      return [updated, ...rest].slice(0, 30);
+      const nextSessions = [updated, ...rest].slice(0, 30);
+      if (account.mode === "guest") {
+        sessionStorage.setItem(guestSessionsKey(account.id), JSON.stringify(nextSessions));
+      }
+      return nextSessions;
     });
 
-    fetch("/api/sessions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updated)
-    }).catch(() => undefined);
+    if (account.mode === "google" && account.accessToken) {
+      fetch("/api/sessions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${account.accessToken}`
+        },
+        body: JSON.stringify(updated)
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            setError(payload.error || "This chat was created, but it could not be saved to your Google account.");
+          }
+        })
+        .catch(() => setError("This chat was created, but it could not be saved to your Google account."));
+    }
   }
 
   function resetSession() {
-    const fresh = newSession();
+    const fresh = newSession(account?.id || "guest");
     setPrompt("");
     setFiles([]);
     setCurrentSession(fresh);
@@ -450,11 +665,37 @@ export default function HomePage() {
     setFiles(Array.from(event.target.files || []));
   }
 
+  function handleNav(label: string) {
+    if (label === "Home") {
+      resetSession();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    if (label === "History") {
+      document.querySelector(".history-panel")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    const mapLabelToTab: Partial<Record<string, TabKey>> = {
+      "Study Packs": "professor",
+      Roadmaps: "roadmap",
+      Resources: "resources",
+      Practice: "practice",
+      Flashcards: "flashcards",
+      Projects: "projects",
+      Quizzes: "quiz"
+    };
+    const tab = mapLabelToTab[label];
+    if (tab && studyPack) {
+      setActiveTab(tab);
+      document.getElementById("study-pack")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmedPrompt = prompt.trim();
     if (!trimmedPrompt) {
-      setError("Enter a topic or question before sending it to AcademIQ.");
+      setError("Enter a topic or question before sending.");
       return;
     }
 
@@ -487,11 +728,12 @@ export default function HomePage() {
       const message: ChatMessage = { role: "user", content: trimmedPrompt, createdAt: new Date().toISOString() };
       const assistant: ChatMessage = {
         role: "assistant",
-        content: `I created a study pack for ${payload.topic}.`,
+        content: `I created a ${difficulty.toLowerCase()} study pack for ${payload.topic}.`,
         createdAt: new Date().toISOString()
       };
       persistSession({
         ...currentSession,
+        userId: account?.id || currentSession.userId,
         title: payload.title || payload.topic,
         pack: payload as StudyPack,
         messages: [...currentSession.messages, message, assistant]
@@ -521,7 +763,7 @@ export default function HomePage() {
       });
       const payload = await response.json();
       if (!response.ok) {
-        throw new Error(payload.error || "Mentor Agent failed.");
+        throw new Error(payload.error || "Mentor failed.");
       }
       persistSession({
         ...currentSession,
@@ -533,7 +775,7 @@ export default function HomePage() {
       });
       setMentorQuestion("");
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Mentor Agent failed.");
+      setError(caughtError instanceof Error ? caughtError.message : "Mentor failed.");
     } finally {
       setIsMentorLoading(false);
     }
@@ -660,13 +902,19 @@ export default function HomePage() {
                   <span>{choice}</span>
                 </label>
               ))}
-              {quizScore ? <p className="muted">Answer: {question.answer}. {question.explanation}</p> : null}
+              {quizScore ? (
+                <p className="muted">
+                  Answer: {question.answer}. {question.explanation}
+                </p>
+              ) : null}
             </fieldset>
           ))}
-          <button className="primary-button inline" onClick={gradeQuiz} type="button">
-            Grade quiz
-          </button>
-          {quizScore ? <strong className="score-pill">Score: {quizScore}</strong> : null}
+          <div className="inline-actions">
+            <button className="primary-button inline" onClick={gradeQuiz} type="button">
+              Grade quiz
+            </button>
+            {quizScore ? <strong className="score-pill">Score: {quizScore}</strong> : null}
+          </div>
         </div>
       );
     }
@@ -711,7 +959,9 @@ export default function HomePage() {
         <div className="mind-map">
           <div className="mind-node root">{studyPack.topic}</div>
           {["Professor", "Roadmap", "Resources", "Practice", "Quiz", "Projects", "Flashcards"].map((label) => (
-            <div className="mind-node" key={label}>{label}</div>
+            <div className="mind-node" key={label}>
+              {label}
+            </div>
           ))}
         </div>
       );
@@ -757,6 +1007,90 @@ export default function HomePage() {
     );
   }
 
+  if (authStatus === "checking" || authStatus === "loading") {
+    return (
+      <main className="landing-shell">
+        <div className="loading-card">
+          <div className="brand-mark">A</div>
+          <strong>{authStatus === "loading" ? "Finishing Google sign-in..." : "Opening AcademIQ..."}</strong>
+        </div>
+      </main>
+    );
+  }
+
+  if (!account) {
+    return (
+      <main className="landing-shell">
+        <header className="landing-topbar">
+          <div className="landing-brand">
+            <div className="brand-mark">A</div>
+            <strong>AcademIQ</strong>
+          </div>
+          <a href="https://wabi.ai/" target="_blank" rel="noreferrer">
+            Reference: Wabi
+          </a>
+        </header>
+
+        <section className="landing-hero">
+          <div className="landing-copy">
+            <span className="eyebrow">Study workspace</span>
+            <h1>Build a study pack in minutes.</h1>
+            <p>
+              Start as a guest for a temporary workspace, or sign in with Google to keep your chats and study packs.
+            </p>
+            {authMessage ? <p className="auth-message">{authMessage}</p> : null}
+            <div className="auth-actions">
+              <button className="primary-button large" onClick={startGoogleSignIn} type="button">
+                <LogIn size={18} />
+                Continue with Google
+              </button>
+              <button className="soft-button large" onClick={startGuest} type="button">
+                <UserCircle size={18} />
+                Continue as guest
+              </button>
+            </div>
+          </div>
+
+          <div className="product-preview" aria-label="AcademIQ workspace preview">
+            <div className="preview-window">
+              <div className="preview-top">
+                <span />
+                <span />
+                <span />
+              </div>
+              <div className="preview-content">
+                <div className="preview-sidebar">
+                  <strong>AcademIQ</strong>
+                  <span />
+                  <span />
+                  <span />
+                </div>
+                <div className="preview-main">
+                  <div className="preview-heading">
+                    <span>Data Science</span>
+                    <strong>Beginner roadmap</strong>
+                  </div>
+                  <div className="preview-prompt">
+                    <p>Explain regression with practice problems</p>
+                    <button type="button">
+                      <ArrowRight size={16} />
+                    </button>
+                  </div>
+                  <div className="preview-grid">
+                    <span>Lesson</span>
+                    <span>Quiz</span>
+                    <span>Flashcards</span>
+                    <span>Project</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className={`app-shell ${theme}`}>
       <aside className="sidebar" aria-label="AcademIQ navigation">
@@ -764,13 +1098,13 @@ export default function HomePage() {
           <div className="brand-mark">A</div>
           <div>
             <strong>AcademIQ</strong>
-            <span>AI learning agents</span>
+            <span>Learning workspace</span>
           </div>
         </div>
 
         <nav className="nav-list">
           {navItems.map(({ label, Icon }, index) => (
-            <button className={`nav-item ${index === 0 ? "active" : ""}`} key={label}>
+            <button className={`nav-item ${index === 0 ? "active" : ""}`} key={label} onClick={() => handleNav(label)} type="button">
               <Icon size={18} strokeWidth={1.8} />
               <span>{label}</span>
             </button>
@@ -781,30 +1115,36 @@ export default function HomePage() {
           <div className="history-title">
             <History size={16} />
             <span>History</span>
-            <small>{supabaseEnabled ? "Supabase" : "Local"}</small>
+            <small>
+              {account.mode === "google" ? (supabaseEnabled ? "Saved" : "Setup") : "Guest"}
+            </small>
           </div>
-          {filteredSessions.slice(0, 8).map((session) => (
-            <button
-              className={`history-item ${session.id === currentSession.id ? "active" : ""}`}
-              key={session.id}
-              onClick={() => {
-                setCurrentSession(session);
-                setQuizScore("");
-                setQuizAnswers({});
-              }}
-              type="button"
-            >
-              <strong>{session.title}</strong>
-              <span>{formatDate(session.updatedAt)}</span>
-            </button>
-          ))}
+          {filteredSessions.length ? (
+            filteredSessions.slice(0, 8).map((session) => (
+              <button
+                className={`history-item ${session.id === currentSession.id ? "active" : ""}`}
+                key={session.id}
+                onClick={() => {
+                  setCurrentSession(session);
+                  setQuizScore("");
+                  setQuizAnswers({});
+                }}
+                type="button"
+              >
+                <strong>{session.title}</strong>
+                <span>{formatDate(session.updatedAt)}</span>
+              </button>
+            ))
+          ) : (
+            <p className="history-empty">No chats yet.</p>
+          )}
         </div>
 
         <div className="profile-chip">
-          <UserCircle size={20} />
+          {account.avatarUrl ? <img alt="" src={account.avatarUrl} /> : <UserCircle size={22} />}
           <div>
-            <strong>Jason</strong>
-            <span>Focused workspace</span>
+            <strong>{account.name}</strong>
+            <span>{account.mode === "google" ? account.email || "Google account" : "Guest session"}</span>
           </div>
         </div>
       </aside>
@@ -812,7 +1152,7 @@ export default function HomePage() {
       <section className="workspace">
         <header className="topbar">
           <label className="subject-select">
-            <span>AI Tutor</span>
+            <span>Workspace</span>
             <div className="select-shell">
               <GraduationCap size={17} />
               <select value={subject} onChange={(event) => setSubject(event.target.value)}>
@@ -828,7 +1168,7 @@ export default function HomePage() {
             <label className="search-box">
               <Search size={17} />
               <input
-                placeholder="Search Study Pack"
+                placeholder="Search chats"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
               />
@@ -837,7 +1177,7 @@ export default function HomePage() {
               className="soft-button"
               type="button"
               onClick={() => {
-                window.location.href = "mailto:?subject=Join me on AcademIQ&body=I am using AcademIQ for AI-powered studying.";
+                window.location.href = "mailto:?subject=Join me on AcademIQ&body=I am using AcademIQ for studying.";
               }}
             >
               <UserPlus size={17} />
@@ -852,22 +1192,21 @@ export default function HomePage() {
               {theme === "dark" ? <Moon size={17} /> : <Sun size={17} />}
               <span>{theme === "dark" ? "Dark" : "Light"}</span>
             </button>
+            <button className="soft-button" type="button" onClick={signOut}>
+              <LogOut size={17} />
+              <span>Log out</span>
+            </button>
             <button className="primary-button" type="button" onClick={resetSession}>
               <Plus size={18} />
-              <span>New Study Session</span>
+              <span>New session</span>
             </button>
           </div>
         </header>
 
         {!studyPack ? (
           <section className="hero">
-            <div className="ai-orb" aria-hidden="true" />
-            <h1>
-              <span>Good Afternoon, Jason</span>
-              <span>
-                What would you like to <mark>learn today?</mark>
-              </span>
-            </h1>
+            <span className="eyebrow">Good afternoon, {account.name.split(" ")[0] || "there"}</span>
+            <h1>What are you studying today?</h1>
           </section>
         ) : (
           <section className="pack-header">
@@ -887,7 +1226,7 @@ export default function HomePage() {
           <textarea
             value={prompt}
             onChange={(event) => setPrompt(event.target.value)}
-            placeholder="Ask your AI tutor a question, enter a topic, or generate a study pack."
+            placeholder="Enter a topic, question, or pasted notes."
             aria-label="Learning request"
           />
 
@@ -907,6 +1246,7 @@ export default function HomePage() {
                     key={item}
                     type="button"
                     onClick={() => setDifficulty(item)}
+                    aria-pressed={difficulty === item}
                   >
                     {item}
                   </button>
@@ -915,7 +1255,7 @@ export default function HomePage() {
             </fieldset>
 
             <label className="compact-select">
-              <span>Learning Style</span>
+              <span>Learning style</span>
               <select value={learningStyle} onChange={(event) => setLearningStyle(event.target.value)}>
                 {learningStyles.map((item) => (
                   <option key={item}>{item}</option>
@@ -934,7 +1274,7 @@ export default function HomePage() {
                 onChange={(event) => setGenerateStudyPack(event.target.checked)}
                 type="checkbox"
               />
-              <span>Generate Study Pack</span>
+              <span>Study pack</span>
             </label>
 
             <button className="send-button" type="submit" aria-label="Send learning request" disabled={isLoading}>
@@ -949,7 +1289,7 @@ export default function HomePage() {
         {!studyPack ? (
           <>
             <section className="agent-section">
-              <div className="section-label">CHOOSE YOUR AI TUTOR AGENT</div>
+              <div className="section-label">Choose a specialist</div>
               <div className="agent-grid">
                 {agents.map(({ title, role, Icon }) => (
                   <article className={`agent-card ${selectedAgent === title ? "selected" : ""}`} key={title}>
@@ -959,7 +1299,7 @@ export default function HomePage() {
                     <h2>{title}</h2>
                     <p>{role}</p>
                     <button type="button" onClick={() => setSelectedAgent(title)}>
-                      {selectedAgent === title ? "Selected" : "Choose Agent"}
+                      {selectedAgent === title ? "Selected" : "Choose"}
                     </button>
                   </article>
                 ))}
@@ -967,7 +1307,7 @@ export default function HomePage() {
             </section>
 
             <section className="quick-section">
-              <div className="section-label">Quick Start</div>
+              <div className="section-label">Quick start</div>
               <div className="quick-grid">
                 {quickStarts.map((item) => (
                   <button type="button" key={item} onClick={() => setPrompt(item)}>
@@ -978,7 +1318,7 @@ export default function HomePage() {
             </section>
           </>
         ) : (
-          <section className="study-pack">
+          <section className="study-pack" id="study-pack">
             <div className="tabs">
               {tabs.map((tab) => (
                 <button
@@ -996,7 +1336,7 @@ export default function HomePage() {
         )}
 
         <section className="mentor-panel">
-          <div className="section-label">Mentor Agent</div>
+          <div className="section-label">Mentor</div>
           <div className="chat-log">
             {currentSession.messages.map((message, index) => (
               <div className={`chat-message ${message.role}`} key={`${message.createdAt}-${index}`}>
@@ -1014,15 +1354,15 @@ export default function HomePage() {
             />
             <button className="primary-button inline" disabled={!studyPack || isMentorLoading} type="submit">
               <Sparkles size={17} />
-              Ask Mentor
+              Ask mentor
             </button>
           </form>
         </section>
 
         {isLoading ? (
           <div className="loading-state">
-            <div className="mini-orb" />
-            <strong>{selectedAgentCard.title} is building your learning workspace...</strong>
+            <selectedAgentCard.Icon size={24} />
+            <strong>{selectedAgentCard.title} is building your workspace...</strong>
           </div>
         ) : null}
       </section>

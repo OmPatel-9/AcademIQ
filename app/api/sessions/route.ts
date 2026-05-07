@@ -5,6 +5,11 @@ export const dynamic = "force-dynamic";
 
 const TABLE = "academiq_sessions";
 
+type AuthProfile = {
+  id: string;
+  email?: string;
+};
+
 function supabaseHeaders() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   return {
@@ -16,12 +21,49 @@ function supabaseHeaders() {
 }
 
 function supabaseUrl(path: string) {
-  const base = (process.env.SUPABASE_URL || "").replace(/\/rest\/v1$/, "").replace(/\/$/, "");
-  return `${base}/rest/v1/${path}`;
+  return `${supabaseBase()}/rest/v1/${path}`;
+}
+
+function supabaseBase() {
+  return (process.env.SUPABASE_URL || "").replace(/\/rest\/v1$/, "").replace(/\/$/, "");
 }
 
 function hasSupabase() {
   return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+}
+
+async function authenticatedProfile(request: Request): Promise<AuthProfile | null> {
+  if (!hasSupabase()) {
+    return null;
+  }
+
+  const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
+  if (!token) {
+    return null;
+  }
+
+  const response = await fetch(`${supabaseBase()}/auth/v1/user`, {
+    headers: {
+      apikey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+      Authorization: `Bearer ${token}`
+    },
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const profile = await response.json().catch(() => null);
+  const id = typeof profile?.id === "string" ? profile.id : "";
+  if (!id) {
+    return null;
+  }
+
+  return {
+    id,
+    email: typeof profile?.email === "string" ? profile.email : undefined
+  };
 }
 
 export async function GET(request: Request) {
@@ -29,9 +71,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ enabled: false, sessions: [] });
   }
 
-  const userId = new URL(request.url).searchParams.get("userId") || "guest";
+  const profile = await authenticatedProfile(request);
+  if (!profile) {
+    return NextResponse.json({ enabled: true, error: "Google sign-in is required to load saved chats.", sessions: [] }, { status: 401 });
+  }
+
   const response = await fetch(
-    supabaseUrl(`${TABLE}?user_id=eq.${encodeURIComponent(userId)}&order=updated_at.desc&limit=30`),
+    supabaseUrl(`${TABLE}?user_id=eq.${encodeURIComponent(profile.id)}&order=updated_at.desc&limit=30`),
     { headers: supabaseHeaders(), cache: "no-store" }
   );
 
@@ -66,10 +112,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ enabled: false, saved: false });
   }
 
+  const profile = await authenticatedProfile(request);
+  if (!profile) {
+    return NextResponse.json({ enabled: true, error: "Google sign-in is required to save chats." }, { status: 401 });
+  }
+
   const now = new Date().toISOString();
   const row = {
     id: body.id,
-    user_id: body.userId || "guest",
+    user_id: profile.id,
     title: body.title || body.pack?.topic || "AcademIQ study session",
     pack: body.pack,
     messages: body.messages || [],
