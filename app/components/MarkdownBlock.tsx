@@ -1,12 +1,37 @@
 import type { ReactNode } from "react";
 
-function renderInlineMarkdown(text: string) {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((part, index): ReactNode => {
-    if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={`${part}-${index}`}>{part.slice(2, -2)}</strong>;
+function renderInlineMarkdown(text: string): ReactNode[] {
+  const tokens: ReactNode[] = [];
+  // Match: **bold**, *italic*, `code`, or plain text
+  const regex = /(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      tokens.push(text.slice(lastIndex, match.index));
     }
-    return part;
-  });
+    const segment = match[0];
+    const key = `${match.index}-${segment.slice(0, 8)}`;
+    if (segment.startsWith("**") && segment.endsWith("**")) {
+      tokens.push(<strong key={key}>{segment.slice(2, -2)}</strong>);
+    } else if (segment.startsWith("*") && segment.endsWith("*")) {
+      tokens.push(<em key={key}>{segment.slice(1, -1)}</em>);
+    } else if (segment.startsWith("`") && segment.endsWith("`")) {
+      tokens.push(<code key={key} className="inline-code">{segment.slice(1, -1)}</code>);
+    }
+    lastIndex = regex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    tokens.push(text.slice(lastIndex));
+  }
+
+  return tokens.length ? tokens : [text];
+}
+
+function isCodeFence(line: string) {
+  return /^```/.test(line.trim());
 }
 
 type MarkdownBlockProps = {
@@ -14,13 +39,7 @@ type MarkdownBlockProps = {
 };
 
 export function MarkdownBlock({ children }: MarkdownBlockProps) {
-  const blocks = children
-    .trim()
-    .split(/\n{2,}/)
-    .map((block) => block.trim())
-    .filter(Boolean);
-
-  if (!blocks.length) {
+  if (!children?.trim()) {
     return (
       <div className="markdown-block">
         <p>No content generated yet.</p>
@@ -28,52 +47,131 @@ export function MarkdownBlock({ children }: MarkdownBlockProps) {
     );
   }
 
-  return (
-    <div className="markdown-block">
-      {blocks.map((block, index) => {
-        const lines = block
-          .split("\n")
-          .map((line) => line.trim())
-          .filter(Boolean);
-        const headingMatch = lines[0]?.match(/^#{1,3}\s+(.+)/);
-        const bulletLines = lines.filter((line) => /^[-*]\s+/.test(line));
-        const numberedLines = lines.filter((line) => /^\d+[.)]\s+/.test(line));
+  const lines = children.split("\n");
+  const elements: ReactNode[] = [];
+  let index = 0;
 
-        if (headingMatch && lines.length === 1) {
-          return <h3 key={`${block}-${index}`}>{renderInlineMarkdown(headingMatch[1])}</h3>;
-        }
+  while (index < lines.length) {
+    const line = lines[index];
+    const trimmed = line.trim();
 
-        if (headingMatch) {
-          return (
-            <section className="markdown-section" key={`${block}-${index}`}>
-              <h3>{renderInlineMarkdown(headingMatch[1])}</h3>
-              <p>{renderInlineMarkdown(lines.slice(1).join("\n"))}</p>
-            </section>
-          );
-        }
+    // Skip empty lines
+    if (!trimmed) {
+      index++;
+      continue;
+    }
 
-        if (bulletLines.length === lines.length) {
-          return (
-            <ul key={`${block}-${index}`}>
-              {lines.map((line) => (
-                <li key={line}>{renderInlineMarkdown(line.replace(/^[-*]\s+/, ""))}</li>
-              ))}
-            </ul>
-          );
-        }
+    // Code fence blocks
+    if (isCodeFence(trimmed)) {
+      const lang = trimmed.replace(/^```\s*/, "").trim();
+      const codeLines: string[] = [];
+      index++;
+      while (index < lines.length && !isCodeFence(lines[index].trim())) {
+        codeLines.push(lines[index]);
+        index++;
+      }
+      index++; // skip closing fence
+      elements.push(
+        <pre key={`code-${elements.length}`} className="code-block" data-lang={lang || undefined}>
+          <code>{codeLines.join("\n")}</code>
+        </pre>
+      );
+      continue;
+    }
 
-        if (numberedLines.length === lines.length) {
-          return (
-            <ol key={`${block}-${index}`}>
-              {lines.map((line) => (
-                <li key={line}>{renderInlineMarkdown(line.replace(/^\d+[.)]\s+/, ""))}</li>
-              ))}
-            </ol>
-          );
-        }
+    // Horizontal rule
+    if (/^[-*_]{3,}$/.test(trimmed)) {
+      elements.push(<hr key={`hr-${elements.length}`} className="md-hr" />);
+      index++;
+      continue;
+    }
 
-        return <p key={`${block}-${index}`}>{renderInlineMarkdown(lines.join("\n"))}</p>;
-      })}
-    </div>
-  );
+    // Headings
+    const headingMatch = trimmed.match(/^(#{1,4})\s+(.+)/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      const content = headingMatch[2];
+      if (level <= 2) {
+        elements.push(<h3 key={`h-${elements.length}`}>{renderInlineMarkdown(content)}</h3>);
+      } else {
+        elements.push(
+          <h4 key={`h-${elements.length}`} className="md-subheading">
+            {renderInlineMarkdown(content)}
+          </h4>
+        );
+      }
+      index++;
+      continue;
+    }
+
+    // Collect consecutive bullet lines
+    if (/^[-*+]\s+/.test(trimmed)) {
+      const items: string[] = [];
+      while (index < lines.length && /^[-*+]\s+/.test(lines[index].trim())) {
+        items.push(lines[index].trim().replace(/^[-*+]\s+/, ""));
+        index++;
+      }
+      elements.push(
+        <ul key={`ul-${elements.length}`}>
+          {items.map((item, i) => (
+            <li key={i}>{renderInlineMarkdown(item)}</li>
+          ))}
+        </ul>
+      );
+      continue;
+    }
+
+    // Collect consecutive numbered lines
+    if (/^\d+[.)]\s+/.test(trimmed)) {
+      const items: string[] = [];
+      while (index < lines.length && /^\d+[.)]\s+/.test(lines[index].trim())) {
+        items.push(lines[index].trim().replace(/^\d+[.)]\s+/, ""));
+        index++;
+      }
+      elements.push(
+        <ol key={`ol-${elements.length}`}>
+          {items.map((item, i) => (
+            <li key={i}>{renderInlineMarkdown(item)}</li>
+          ))}
+        </ol>
+      );
+      continue;
+    }
+
+    // Blockquote
+    if (trimmed.startsWith(">")) {
+      const quoteLines: string[] = [];
+      while (index < lines.length && lines[index].trim().startsWith(">")) {
+        quoteLines.push(lines[index].trim().replace(/^>\s?/, ""));
+        index++;
+      }
+      elements.push(
+        <blockquote key={`bq-${elements.length}`} className="md-blockquote">
+          {renderInlineMarkdown(quoteLines.join(" "))}
+        </blockquote>
+      );
+      continue;
+    }
+
+    // Regular paragraph — collect consecutive non-special lines
+    const paraLines: string[] = [];
+    while (
+      index < lines.length &&
+      lines[index].trim() &&
+      !isCodeFence(lines[index].trim()) &&
+      !/^#{1,4}\s+/.test(lines[index].trim()) &&
+      !/^[-*+]\s+/.test(lines[index].trim()) &&
+      !/^\d+[.)]\s+/.test(lines[index].trim()) &&
+      !/^[-*_]{3,}$/.test(lines[index].trim()) &&
+      !lines[index].trim().startsWith(">")
+    ) {
+      paraLines.push(lines[index].trim());
+      index++;
+    }
+    if (paraLines.length) {
+      elements.push(<p key={`p-${elements.length}`}>{renderInlineMarkdown(paraLines.join(" "))}</p>);
+    }
+  }
+
+  return <div className="markdown-block">{elements}</div>;
 }

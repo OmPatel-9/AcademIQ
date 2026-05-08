@@ -58,12 +58,35 @@ function strings(value: unknown): string[] {
 function difficultyGuidance(value: string) {
   const difficulty = value.toLowerCase();
   if (difficulty.includes("advanced")) {
-    return "Advanced: assume prior fundamentals, use precise terminology, include tradeoffs, edge cases, and harder quiz distractors.";
+    return `Advanced level — THIS IS CRITICAL, follow strictly:
+- Assume the learner already knows fundamentals and intermediate concepts. Do NOT explain basics.
+- Use precise technical terminology without dumbing it down.
+- Professor section: cover edge cases, tradeoffs, performance implications, real-world gotchas, and design patterns.
+- Quiz: questions should require reasoning and analysis, not just recall. Include tricky distractors that test deep understanding. At least 3 questions should involve code/scenario analysis.
+- Flashcards: focus on subtle distinctions, common misconceptions, and advanced patterns.
+- Practice: include challenging problems that require combining multiple concepts.
+- Projects: suggest production-grade or research-level projects.
+- Roadmap: assume 2-4 weeks of prior study, focus on mastery and specialization paths.`;
   }
   if (difficulty.includes("intermediate")) {
-    return "Intermediate: assume the learner knows basics, connect concepts, include applied examples, and use moderate quiz distractors.";
+    return `Intermediate level — THIS IS CRITICAL, follow strictly:
+- Assume the learner knows basic definitions but needs to connect concepts and apply them.
+- Professor section: bridge theory to practice with applied examples, comparisons, and "when to use what" guidance.
+- Quiz: mix recall with application questions. Distractors should test common misunderstandings.
+- Flashcards: focus on relationships between concepts, not just definitions.
+- Practice: include exercises that require applying concepts to realistic scenarios.
+- Projects: suggest practical portfolio projects with moderate complexity.
+- Roadmap: assume 1-2 weeks of basics done, focus on building working knowledge.`;
   }
-  return "Beginner: define jargon, go step by step, use concrete examples, keep practice approachable, and avoid unexplained prerequisites.";
+  return `Beginner level — THIS IS CRITICAL, follow strictly:
+- Define ALL jargon and technical terms when first introduced.
+- Go step by step with concrete, everyday analogies and examples.
+- Professor section: start from absolute zero. Explain WHY before HOW. Use simple language.
+- Quiz: questions should test basic recall and comprehension. Distractors should be clearly wrong to someone who read the material.
+- Flashcards: focus on key term definitions and fundamental concepts.
+- Practice: keep exercises simple and approachable with clear instructions.
+- Projects: suggest beginner-friendly projects with step-by-step guidance.
+- Roadmap: assume no prior knowledge, include prerequisite steps.`;
 }
 
 function attachmentContext(attachments: Attachment[] = []) {
@@ -260,23 +283,39 @@ Return strict JSON only. Use this schema:
 {
   "topic": "short topic title",
   "summary": "3-5 sentence overview",
-  "professor": "markdown knowledge base",
-  "advisor": "markdown roadmap with milestones and estimated time",
-  "librarian": "markdown curated resource notes",
-  "assistant": "markdown practice materials with solutions",
+  "professor": "markdown knowledge base (at least 400 words with multiple sections)",
+  "advisor": "markdown roadmap with numbered milestones, estimated time per step, and prerequisites",
+  "librarian": "markdown curated resource notes with specific recommendations",
+  "assistant": "markdown practice materials with 3-5 exercises including worked solutions",
   "resources": [{"title":"resource name","type":"docs/course/book/video/search term","why":"why it helps","citation":"URL or Needs verification"}],
-  "quiz": [{"question":"...","choices":["...","...","...","..."],"answer":"exact correct choice text","explanation":"..."}],
-  "flashcards": [{"front":"prompt","back":"answer","tags":"comma separated tags"}],
+  "quiz": [{"question":"...","choices":["A) ...","B) ...","C) ...","D) ..."],"answer":"exact correct choice text including letter prefix","explanation":"why this is correct and why other choices are wrong"}],
+  "flashcards": [{"front":"prompt or question","back":"concise answer","tags":"comma separated tags"}],
   "projects": ["portfolio project idea with goal, features, tech, stretch goal, proof of skill"],
   "progressTopics": ["trackable learning milestone"],
   "mentorNextStep": "recommended follow-up"
 }
 
+CRITICAL QUANTITY REQUIREMENTS:
+- quiz: Generate EXACTLY 10 questions. Not 3, not 5. TEN questions covering different aspects of the topic.
+- flashcards: Generate EXACTLY 15 flashcards. Cover key terms, concepts, and common pitfalls.
+- resources: At least 6 diverse resources (mix of docs, courses, books, videos).
+- projects: At least 3 project ideas at varying complexity.
+- progressTopics: At least 8 trackable milestones.
+
+CRITICAL QUALITY RULES:
+- Do NOT use raw markdown symbols (**, ##, *, \`) inside quiz choices, flashcard fronts, or flashcard backs. Those fields must be plain readable text.
+- Quiz choices MUST start with a letter prefix like "A) ", "B) ", "C) ", "D) ".
+- Quiz answer field must exactly match one of the choices including the letter prefix.
+- Quiz explanations must explain why the correct answer is right AND why at least one distractor is wrong.
+- Flashcard fronts should be questions or "fill in the blank" prompts, not just terms.
+- Each agent section (professor, advisor, librarian, assistant) must provide DIFFERENT content — no copy-pasting between sections.
+
 Style contract for every markdown field:
 - Make the output polished, scannable, and student-friendly.
-- Use short descriptive headings, compact bullets, concrete examples, and practice prompts.
+- Use short descriptive headings (## or ###), compact bullets, concrete examples, and practice prompts.
 - Avoid generic filler, walls of text, and repeated wording across agents.
 - Put the most useful next action near the top of each section.
+- Use clean markdown: headings, bold for key terms, bullet lists. No excessive decoration or emoji.
 
 ${wantsPack ? "Create a complete study pack." : "Answer directly, but still fill the schema with concise useful fields."}`;
 
@@ -284,6 +323,7 @@ ${wantsPack ? "Create a complete study pack." : "Answer directly, but still fill
 Subject/model selector: ${body.subject || "General AI Tutor"}
 Difficulty: ${difficulty}
 Difficulty contract: ${difficultyGuidance(difficulty)}
+IMPORTANT: The difficulty level MUST fundamentally change the content. A Beginner pack and an Advanced pack on the same topic should look completely different in depth, vocabulary, examples, and quiz difficulty.
 Learning style: ${body.learningStyle || "Step-by-step"}
 Selected agent: ${body.agent || "Professor"}
 Citations requested: ${body.citations ? "yes" : "no"}
@@ -332,7 +372,7 @@ export async function POST(request: Request) {
 
   try {
     const [data, youtube] = await Promise.all([
-      groqJson(buildMessages({ ...body, prompt }), 6500),
+      groqJson(buildMessages({ ...body, prompt }), 8000),
       searchYouTube(prompt)
     ]);
     const pack = normalizePack(data, { ...body, prompt, difficulty: cleanText(body.difficulty, "Beginner") }, youtube);
