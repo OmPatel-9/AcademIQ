@@ -1,6 +1,7 @@
 "use client";
 
 import { AgentSection } from "./components/AgentSection";
+import { DifficultyModal } from "./components/DifficultyModal";
 import { LandingScreen } from "./components/LandingScreen";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { MentorChat } from "./components/MentorChat";
@@ -23,13 +24,15 @@ function AppContent() {
     subject, searchTerm, prompt, difficulty, learningStyle, citations,
     generateStudyPack, files, isLoading, error, selectedAgent, activeTab,
     quizAnswers, quizScore, mentorQuestion, isMentorLoading, streamingText,
+    showDifficultyModal, pendingPrompt,
     // Actions
     toggleTheme, startGoogleSignIn, startGuest, signOut, resetSession,
-    selectSession, setSubject, setSearchTerm, setPrompt, setDifficulty,
+    selectSession, setSubject, setSearchTerm, setPrompt,
     setLearningStyle, setCitations, setGenerateStudyPack, handleFiles,
     handleSubmit, setSelectedAgent, handleTabChange, setQuizAnswers,
     gradeQuiz, toggleProgress, createGoogleDoc, printStudyPack,
-    setMentorQuestion, askMentor, handleNav, inviteByEmail
+    setMentorQuestion, askMentor, handleNav, inviteByEmail,
+    confirmDifficulty, cancelDifficulty
   } = ctx;
 
   if (authStatus === "checking" || authStatus === "loading") {
@@ -78,14 +81,12 @@ function AppContent() {
 
           <PromptPanel
             citations={citations}
-            difficulty={difficulty}
             files={files}
             generateStudyPack={generateStudyPack}
             isLoading={isLoading}
             learningStyle={learningStyle}
             prompt={prompt}
             onCitationsChange={setCitations}
-            onDifficultyChange={setDifficulty}
             onFilesChange={handleFiles}
             onGenerateStudyPackChange={setGenerateStudyPack}
             onLearningStyleChange={setLearningStyle}
@@ -130,6 +131,14 @@ function AppContent() {
 
           {isLoading ? <WorkspaceLoading agent={selectedAgentCard} /> : null}
         </section>
+
+        {showDifficultyModal ? (
+          <DifficultyModal
+            topic={pendingPrompt}
+            onSelect={confirmDifficulty}
+            onCancel={cancelDifficulty}
+          />
+        ) : null}
       </main>
     </StudyProvider>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChangeEvent, FormEvent } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AuthStatus, ChatMessage, Difficulty, Session, StudyPack, TabKey, UserAccount } from "../lib/types";
 import type { StudyContextValue } from "../context/StudyContext";
 import {
@@ -52,6 +52,10 @@ export function useStudySession(): StudyContextValue {
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [supabaseEnabled, setSupabaseEnabled] = useState(false);
+  const [showDifficultyModal, setShowDifficultyModal] = useState(false);
+  const [pendingPrompt, setPendingPrompt] = useState("");
+
+  const pendingFilesRef = useRef<File[]>([]);
 
   const studyPack = currentSession.pack;
   const selectedAgentCard = useMemo(
@@ -339,29 +343,42 @@ export function useStudySession(): StudyContextValue {
     [resetSession, studyPack]
   );
 
+  // Step 1: User submits the form → show difficulty modal
   const handleSubmit = useCallback(
-    async (event: FormEvent<HTMLFormElement>) => {
+    (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       const trimmedPrompt = prompt.trim();
       if (!trimmedPrompt) {
         setError("Enter a topic or question before sending.");
         return;
       }
+      setError("");
+      setPendingPrompt(trimmedPrompt);
+      pendingFilesRef.current = files;
+      setShowDifficultyModal(true);
+    },
+    [prompt, files]
+  );
 
+  // Step 2: User picks difficulty → fire the API
+  const confirmDifficulty = useCallback(
+    async (chosenDifficulty: Difficulty) => {
+      setShowDifficultyModal(false);
+      setDifficulty(chosenDifficulty);
       setIsLoading(true);
       setError("");
       setQuizScore("");
       setQuizAnswers({});
 
       try {
-        const attachments = await Promise.all(files.map(readAttachment));
+        const attachments = await Promise.all(pendingFilesRef.current.map(readAttachment));
         const response = await fetch("/api/study-pack", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            prompt: trimmedPrompt,
+            prompt: pendingPrompt,
             subject,
-            difficulty,
+            difficulty: chosenDifficulty,
             learningStyle,
             citations,
             generateStudyPack,
@@ -372,10 +389,10 @@ export function useStudySession(): StudyContextValue {
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error || "AcademIQ could not generate a response.");
 
-        const message: ChatMessage = { role: "user", content: trimmedPrompt, createdAt: new Date().toISOString() };
+        const message: ChatMessage = { role: "user", content: pendingPrompt, createdAt: new Date().toISOString() };
         const assistant: ChatMessage = {
           role: "assistant",
-          content: `I created a ${difficulty.toLowerCase()} study pack for ${payload.topic}.`,
+          content: `I created a ${chosenDifficulty.toLowerCase()} study pack for ${payload.topic}.`,
           createdAt: new Date().toISOString()
         };
         persistSession({
@@ -387,6 +404,8 @@ export function useStudySession(): StudyContextValue {
         });
         setPrompt("");
         setFiles([]);
+        setPendingPrompt("");
+        pendingFilesRef.current = [];
         setActiveTab("professor");
         setActiveNavLabel("Study Packs");
       } catch (caughtError) {
@@ -395,8 +414,14 @@ export function useStudySession(): StudyContextValue {
         setIsLoading(false);
       }
     },
-    [prompt, files, subject, difficulty, learningStyle, citations, generateStudyPack, selectedAgent, persistSession, currentSession, account]
+    [pendingPrompt, subject, learningStyle, citations, generateStudyPack, selectedAgent, persistSession, currentSession, account]
   );
+
+  const cancelDifficulty = useCallback(() => {
+    setShowDifficultyModal(false);
+    setPendingPrompt("");
+    pendingFilesRef.current = [];
+  }, []);
 
   const askMentor = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -556,6 +581,8 @@ export function useStudySession(): StudyContextValue {
     error,
     searchTerm,
     supabaseEnabled,
+    showDifficultyModal,
+    pendingPrompt,
 
     // Derived
     studyPack,
@@ -588,6 +615,8 @@ export function useStudySession(): StudyContextValue {
     toggleProgress,
     createGoogleDoc,
     printStudyPack,
-    inviteByEmail
+    inviteByEmail,
+    confirmDifficulty,
+    cancelDifficulty
   };
 }

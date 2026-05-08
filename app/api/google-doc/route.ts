@@ -141,9 +141,11 @@ export async function POST(request: Request) {
       const detail = await response.json().catch(() => ({}));
       const message = (detail as any)?.error?.message || "Google Drive API request failed.";
 
+      console.error("Google Drive API error:", response.status, message);
+
       if (response.status === 401 || response.status === 403) {
         return NextResponse.json(
-          { error: "Google session expired or missing permissions. Sign out and sign in again." },
+          { error: `Google API error (${response.status}): ${message}` },
           { status: 401 }
         );
       }

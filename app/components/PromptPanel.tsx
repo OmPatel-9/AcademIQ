@@ -2,19 +2,16 @@
 
 import type { ChangeEvent, FormEvent } from "react";
 import { Paperclip, Send } from "lucide-react";
-import { difficulties, learningStyles } from "../lib/constants";
-import type { Difficulty } from "../lib/types";
+import { learningStyles } from "../lib/constants";
 
 type PromptPanelProps = {
   citations: boolean;
-  difficulty: Difficulty;
   files: File[];
   generateStudyPack: boolean;
   isLoading: boolean;
   learningStyle: string;
   prompt: string;
   onCitationsChange: (value: boolean) => void;
-  onDifficultyChange: (value: Difficulty) => void;
   onFilesChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onGenerateStudyPackChange: (value: boolean) => void;
   onLearningStyleChange: (value: string) => void;
@@ -24,14 +21,12 @@ type PromptPanelProps = {
 
 export function PromptPanel({
   citations,
-  difficulty,
   files,
   generateStudyPack,
   isLoading,
   learningStyle,
   prompt,
   onCitationsChange,
-  onDifficultyChange,
   onFilesChange,
   onGenerateStudyPackChange,
   onLearningStyleChange,
@@ -53,23 +48,6 @@ export function PromptPanel({
           <span>{files.length ? `${files.length} attached` : "Attach"}</span>
           <input type="file" multiple accept=".txt,.md,.csv,.json,.pdf" onChange={onFilesChange} />
         </label>
-
-        <fieldset className="difficulty-control">
-          <legend>Difficulty</legend>
-          <div>
-            {difficulties.map((item) => (
-              <button
-                className={difficulty === item ? "selected" : ""}
-                key={item}
-                type="button"
-                onClick={() => onDifficultyChange(item)}
-                aria-pressed={difficulty === item}
-              >
-                {item}
-              </button>
-            ))}
-          </div>
-        </fieldset>
 
         <label className="compact-select">
           <span>Learning style</span>

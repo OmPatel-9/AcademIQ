@@ -29,6 +29,8 @@ export type StudyState = {
   isLoading: boolean;
   error: string;
   searchTerm: string;
+  showDifficultyModal: boolean;
+  pendingPrompt: string;
 };
 
 export type StudyActions = {
@@ -58,6 +60,8 @@ export type StudyActions = {
   createGoogleDoc: (section: string, markdown: string) => void;
   printStudyPack: () => void;
   inviteByEmail: () => void;
+  confirmDifficulty: (difficulty: Difficulty) => void;
+  cancelDifficulty: () => void;
 };
 
 export type StudyContextValue = StudyState & StudyActions & {

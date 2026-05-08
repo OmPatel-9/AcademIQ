@@ -105,7 +105,7 @@ a {
 .app-shell.dark .primary-button,
 .landing-shell.dark .send-button,
 .app-shell.dark .send-button,
-.app-shell.dark .difficulty-control button.selected,
+.app-shell.dark .difficulty-option,
 .app-shell.dark .tabs button.active,
 .app-shell.dark .mind-node.root {
   color: #101214;
@@ -704,41 +704,114 @@ option {
   pointer-events: none;
 }
 
-.difficulty-control {
-  margin: 0;
-  padding: 0;
-  border: 0;
+/* ─── Difficulty Modal ─────────────────────────── */
+.difficulty-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease;
 }
 
-.difficulty-control legend {
-  margin-bottom: 7px;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 760;
-}
-
-.difficulty-control div {
-  min-height: 42px;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 4px;
+.difficulty-modal {
+  width: 90%;
+  max-width: 480px;
+  background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--panel-soft);
-  padding: 4px;
+  border-radius: 16px;
+  padding: 32px 28px 24px;
+  text-align: center;
+  animation: modalSlideUp 0.25s ease;
 }
 
-.difficulty-control button {
-  min-width: 0;
-  border: 0;
-  border-radius: 6px;
+.difficulty-modal h2 {
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--fg);
+}
+
+.difficulty-topic {
+  margin: 0 0 24px;
+  font-size: 14px;
   color: var(--muted);
-  background: transparent;
 }
 
-.difficulty-control button.selected {
-  color: #ffffff;
-  background: linear-gradient(135deg, var(--accent-strong), var(--accent));
+.difficulty-topic strong {
+  color: var(--fg);
+}
+
+.difficulty-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.difficulty-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 16px 18px;
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel-soft);
+  color: var(--fg);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+}
+
+.difficulty-option:hover {
+  border-color: var(--accent);
+  background: var(--hover);
+  transform: translateY(-1px);
+}
+
+.difficulty-option svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.difficulty-option-label {
+  font-size: 15px;
+  font-weight: 650;
+  display: block;
+}
+
+.difficulty-option-desc {
+  font-size: 12.5px;
+  color: var(--muted);
+  display: block;
+  margin-top: 2px;
+}
+
+.difficulty-cancel {
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 8px 20px;
+}
+
+.difficulty-cancel:hover {
+  color: var(--fg);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalSlideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .compact-select select {
@@ -1890,7 +1963,4 @@ option {
     font-size: 40px;
   }
 
-  .difficulty-control div {
-    grid-template-columns: 1fr;
-  }
 }
