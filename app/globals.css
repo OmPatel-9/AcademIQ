@@ -101,8 +101,6 @@ a {
     var(--outer-bg);
 }
 
-.landing-shell.dark .brand-mark,
-.app-shell.dark .brand-mark,
 .landing-shell.dark .primary-button,
 .app-shell.dark .primary-button,
 .landing-shell.dark .send-button,
@@ -149,16 +147,16 @@ a {
   text-decoration: none;
 }
 
-.brand-mark {
+.brand-logo {
   width: 40px;
   height: 40px;
-  display: grid;
-  place-items: center;
+  display: block;
+  flex: 0 0 auto;
   border-radius: var(--radius);
-  color: #ffffff;
-  background: linear-gradient(135deg, var(--accent-strong), var(--accent), var(--accent-warm));
+  border: 1px solid var(--border);
+  background: #ffffff;
+  object-fit: contain;
   box-shadow: 0 12px 28px rgba(40, 85, 163, 0.22);
-  font-weight: 800;
 }
 
 .landing-hero {

@@ -216,6 +216,7 @@ const difficulties: Difficulty[] = ["Beginner", "Intermediate", "Advanced"];
 const GOOGLE_ACCOUNT_KEY = "academiq_google_account_v1";
 const GUEST_ACCOUNT_KEY = "academiq_guest_account_v1";
 const THEME_KEY = "academiq_theme_v1";
+const BRAND_LOGO_SRC = "/logo.png";
 
 function guestSessionsKey(userId: string) {
   return `academiq_guest_sessions_${userId}`;
@@ -389,6 +390,10 @@ function renderInlineMarkdown(text: string) {
     }
     return part;
   });
+}
+
+function BrandLogo() {
+  return <img alt="" className="brand-logo" src={BRAND_LOGO_SRC} />;
 }
 
 function MarkdownBlock({ children }: { children: string }) {
@@ -1124,7 +1129,7 @@ export default function HomePage() {
     return (
       <main className={`landing-shell ${theme}`}>
         <div className="loading-card">
-          <div className="brand-mark">A</div>
+          <BrandLogo />
           <strong>{authStatus === "loading" ? "Finishing Google sign-in..." : "Opening AcademIQ..."}</strong>
         </div>
       </main>
@@ -1136,7 +1141,7 @@ export default function HomePage() {
       <main className={`landing-shell ${theme}`}>
         <header className="landing-topbar">
           <div className="landing-brand">
-            <div className="brand-mark">A</div>
+            <BrandLogo />
             <strong>AcademIQ</strong>
           </div>
           <ThemeToggle theme={theme} onToggle={toggleTheme} />
@@ -1206,7 +1211,7 @@ export default function HomePage() {
     <main className={`app-shell ${theme}`}>
       <aside className="sidebar" aria-label="AcademIQ navigation">
         <div className="brand">
-          <div className="brand-mark">A</div>
+          <BrandLogo />
           <div>
             <strong>AcademIQ</strong>
             <span>Learning workspace</span>

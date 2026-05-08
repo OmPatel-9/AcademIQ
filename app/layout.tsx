@@ -4,7 +4,11 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "AcademIQ",
-  description: "A focused study workspace for lessons, roadmaps, quizzes, flashcards, and saved chats."
+  description: "A focused study workspace for lessons, roadmaps, quizzes, flashcards, and saved chats.",
+  icons: {
+    icon: [{ url: "/logo.png", type: "image/png" }],
+    apple: [{ url: "/logo.png", type: "image/png" }]
+  }
 };
 
 export default function RootLayout({
