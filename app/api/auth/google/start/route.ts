@@ -12,13 +12,18 @@ export async function GET(request: Request) {
   const origin = new URL(request.url).origin;
 
   if (!base) {
-    return NextResponse.redirect(`${origin}/?auth_error=${encodeURIComponent("Supabase is not configured yet.")}`);
+    return NextResponse.redirect(
+      `${origin}/?auth_error=${encodeURIComponent("Supabase is not configured yet.")}`
+    );
   }
 
   const url = new URL(`${base}/auth/v1/authorize`);
   url.searchParams.set("provider", "google");
   url.searchParams.set("redirect_to", origin);
-  url.searchParams.set("scopes", "email profile");
+  url.searchParams.set(
+    "scopes",
+    "email profile https://www.googleapis.com/auth/drive.file"
+  );
 
   return NextResponse.redirect(url);
 }

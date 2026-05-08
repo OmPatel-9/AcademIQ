@@ -24,6 +24,7 @@ export type UserAccount = {
   email?: string;
   avatarUrl?: string;
   accessToken?: string;
+  providerToken?: string;
   refreshToken?: string;
   expiresAt?: number;
 };

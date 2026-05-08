@@ -113,6 +113,7 @@ export function useStudySession(): StudyContextValue {
           if (!response.ok) throw new Error(profile.error || "Google sign-in could not be verified.");
 
           const expiresIn = Number(hash.get("expires_in") || "3600");
+          const providerToken = hash.get("provider_token") || undefined;
           const nextAccount: UserAccount = {
             mode: "google",
             id: String(profile.id),
@@ -120,6 +121,7 @@ export function useStudySession(): StudyContextValue {
             email: String(profile.email || ""),
             avatarUrl: String(profile.avatarUrl || ""),
             accessToken,
+            providerToken,
             refreshToken: hash.get("refresh_token") || undefined,
             expiresAt: Date.now() + Math.max(expiresIn - 60, 60) * 1000
           };
@@ -418,7 +420,6 @@ export function useStudySession(): StudyContextValue {
           throw new Error(payload.error || "Mentor failed.");
         }
 
-        // Handle streaming response
         const reader = response.body?.getReader();
         if (!reader) throw new Error("No response stream.");
 
@@ -494,10 +495,18 @@ export function useStudySession(): StudyContextValue {
   const createGoogleDoc = useCallback(
     (section: string, markdown: string) => {
       if (!studyPack) return;
+      const token = account?.providerToken;
+      if (!token) {
+        setError("Google Docs export requires signing in with Google. Sign out and sign in again to grant access.");
+        return;
+      }
       setError("");
       fetch("/api/google-doc", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
         body: JSON.stringify({ title: `[${section}] ${studyPack.topic}`, markdown })
       })
         .then(async (response) => {
@@ -512,7 +521,7 @@ export function useStudySession(): StudyContextValue {
           setError(caughtError instanceof Error ? caughtError.message : "Google Docs export failed.");
         });
     },
-    [studyPack, persistSession, currentSession]
+    [studyPack, account, persistSession, currentSession]
   );
 
   const printStudyPack = useCallback(() => window.print(), []);
