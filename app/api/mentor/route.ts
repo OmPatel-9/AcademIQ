@@ -45,7 +45,7 @@ export async function POST(request: Request) {
         {
           role: "system",
           content:
-            "You are AcademIQ's Mentor Agent. Answer follow-up tutoring questions using the generated study pack context. Be direct, adaptive, and practical. Return markdown."
+            "You are AcademIQ's Mentor Agent. Answer follow-up tutoring questions using the generated study pack context. Be direct, adaptive, and practical. Return polished markdown with short headings, compact bullets, concrete examples, and a clear next step."
         },
         {
           role: "user",

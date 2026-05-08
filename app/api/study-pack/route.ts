@@ -271,6 +271,12 @@ Return strict JSON only. Use this schema:
   "mentorNextStep": "recommended follow-up"
 }
 
+Style contract for every markdown field:
+- Make the output polished, scannable, and student-friendly.
+- Use short descriptive headings, compact bullets, concrete examples, and practice prompts.
+- Avoid generic filler, walls of text, and repeated wording across agents.
+- Put the most useful next action near the top of each section.
+
 ${wantsPack ? "Create a complete study pack." : "Answer directly, but still fill the schema with concise useful fields."}`;
 
   const user = `Learning request: ${body.prompt}

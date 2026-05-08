@@ -34,7 +34,7 @@ import {
   UserCircle,
   UserPlus
 } from "lucide-react";
-import type { ChangeEvent, FormEvent } from "react";
+import type { ChangeEvent, FormEvent, ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 
@@ -215,6 +215,7 @@ const learningStyles = ["Step-by-step", "Visual", "Socratic", "Practice-first"];
 const difficulties: Difficulty[] = ["Beginner", "Intermediate", "Advanced"];
 const GOOGLE_ACCOUNT_KEY = "academiq_google_account_v1";
 const GUEST_ACCOUNT_KEY = "academiq_guest_account_v1";
+const THEME_KEY = "academiq_theme_v1";
 
 function guestSessionsKey(userId: string) {
   return `academiq_guest_sessions_${userId}`;
@@ -381,8 +382,78 @@ async function readAttachment(file: File): Promise<AttachmentPayload> {
   return { ...base, content: content.slice(0, 12000) };
 }
 
+function renderInlineMarkdown(text: string) {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, index): ReactNode => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={`${part}-${index}`}>{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
+}
+
 function MarkdownBlock({ children }: { children: string }) {
-  return <div className="markdown-block">{children || "No content generated yet."}</div>;
+  const blocks = children
+    .trim()
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean);
+
+  if (!blocks.length) {
+    return (
+      <div className="markdown-block">
+        <p>No content generated yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="markdown-block">
+      {blocks.map((block, index) => {
+        const lines = block
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean);
+        const headingMatch = lines[0]?.match(/^#{1,3}\s+(.+)/);
+        const bulletLines = lines.filter((line) => /^[-*]\s+/.test(line));
+        const numberedLines = lines.filter((line) => /^\d+[.)]\s+/.test(line));
+
+        if (headingMatch && lines.length === 1) {
+          return <h3 key={`${block}-${index}`}>{renderInlineMarkdown(headingMatch[1])}</h3>;
+        }
+
+        if (headingMatch) {
+          return (
+            <section className="markdown-section" key={`${block}-${index}`}>
+              <h3>{renderInlineMarkdown(headingMatch[1])}</h3>
+              <p>{renderInlineMarkdown(lines.slice(1).join("\n"))}</p>
+            </section>
+          );
+        }
+
+        if (bulletLines.length === lines.length) {
+          return (
+            <ul key={`${block}-${index}`}>
+              {lines.map((line) => (
+                <li key={line}>{renderInlineMarkdown(line.replace(/^[-*]\s+/, ""))}</li>
+              ))}
+            </ul>
+          );
+        }
+
+        if (numberedLines.length === lines.length) {
+          return (
+            <ol key={`${block}-${index}`}>
+              {lines.map((line) => (
+                <li key={line}>{renderInlineMarkdown(line.replace(/^\d+[.)]\s+/, ""))}</li>
+              ))}
+            </ol>
+          );
+        }
+
+        return <p key={`${block}-${index}`}>{renderInlineMarkdown(lines.join("\n"))}</p>;
+      })}
+    </div>
+  );
 }
 
 function ListBlock({ items, empty }: { items: string[]; empty: string }) {
@@ -398,8 +469,28 @@ function ListBlock({ items, empty }: { items: string[]; empty: string }) {
   );
 }
 
+function ThemeToggle({ theme, onToggle }: { theme: ThemeMode; onToggle: () => void }) {
+  const nextTheme = theme === "dark" ? "light" : "dark";
+  const Icon = theme === "dark" ? Sun : Moon;
+  const label = nextTheme === "dark" ? "Dark mode" : "Light mode";
+
+  return (
+    <button
+      className="theme-toggle"
+      type="button"
+      onClick={onToggle}
+      aria-label={`Switch to ${label}`}
+      title={`Switch to ${label}`}
+    >
+      <Icon size={17} />
+      <span>{label}</span>
+    </button>
+  );
+}
+
 export default function HomePage() {
   const [theme, setTheme] = useState<ThemeMode>("light");
+  const [themeReady, setThemeReady] = useState(false);
   const [account, setAccount] = useState<UserAccount | null>(null);
   const [authStatus, setAuthStatus] = useState<AuthStatus>("checking");
   const [authMessage, setAuthMessage] = useState("");
@@ -431,6 +522,24 @@ export default function HomePage() {
   const filteredSessions = sessions.filter((session) =>
     `${session.title} ${session.pack?.topic || ""}`.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem(THEME_KEY);
+    if (savedTheme === "light" || savedTheme === "dark") {
+      setTheme(savedTheme);
+    } else if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
+      setTheme("dark");
+    }
+    setThemeReady(true);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    if (themeReady) {
+      localStorage.setItem(THEME_KEY, theme);
+    }
+  }, [theme, themeReady]);
 
   useEffect(() => {
     let cancelled = false;
@@ -837,6 +946,10 @@ export default function HomePage() {
     window.print();
   }
 
+  function toggleTheme() {
+    setTheme((current) => (current === "dark" ? "light" : "dark"));
+  }
+
   function renderTab() {
     if (!studyPack) {
       return null;
@@ -1009,7 +1122,7 @@ export default function HomePage() {
 
   if (authStatus === "checking" || authStatus === "loading") {
     return (
-      <main className="landing-shell">
+      <main className={`landing-shell ${theme}`}>
         <div className="loading-card">
           <div className="brand-mark">A</div>
           <strong>{authStatus === "loading" ? "Finishing Google sign-in..." : "Opening AcademIQ..."}</strong>
@@ -1020,15 +1133,13 @@ export default function HomePage() {
 
   if (!account) {
     return (
-      <main className="landing-shell">
+      <main className={`landing-shell ${theme}`}>
         <header className="landing-topbar">
           <div className="landing-brand">
             <div className="brand-mark">A</div>
             <strong>AcademIQ</strong>
           </div>
-          <a href="https://wabi.ai/" target="_blank" rel="noreferrer">
-            Reference: Wabi
-          </a>
+          <ThemeToggle theme={theme} onToggle={toggleTheme} />
         </header>
 
         <section className="landing-hero">
@@ -1183,15 +1294,7 @@ export default function HomePage() {
               <UserPlus size={17} />
               <span>Invite</span>
             </button>
-            <button
-              className="theme-toggle"
-              type="button"
-              onClick={() => setTheme((current) => (current === "dark" ? "light" : "dark"))}
-              aria-label="Toggle light and dark mode"
-            >
-              {theme === "dark" ? <Moon size={17} /> : <Sun size={17} />}
-              <span>{theme === "dark" ? "Dark" : "Light"}</span>
-            </button>
+            <ThemeToggle theme={theme} onToggle={toggleTheme} />
             <button className="soft-button" type="button" onClick={signOut}>
               <LogOut size={17} />
               <span>Log out</span>
