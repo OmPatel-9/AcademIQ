@@ -1174,12 +1174,40 @@ option {
 }
 
 .flashcard {
-  min-height: 150px;
+  width: 100%;
+  min-height: 170px;
+  display: grid;
+  align-content: space-between;
+  gap: 12px;
+  color: var(--text);
+  text-align: left;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.flashcard:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+.flashcard.flipped {
+  background: var(--panel);
+}
+
+.flashcard-side {
+  color: var(--accent-strong);
+  font-size: 11px;
+  font-weight: 850;
+  text-transform: uppercase;
 }
 
 .flashcard strong {
   display: block;
   color: var(--text);
+  font-size: 15px;
+  line-height: 1.45;
 }
 
 .flashcard p {

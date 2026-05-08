@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { envInt, rateLimit } from "../../lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,6 +9,18 @@ const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const DEFAULT_MODEL = "llama-3.3-70b-versatile";
 
 export async function POST(request: Request) {
+  const limiter = rateLimit(request, {
+    namespace: "mentor",
+    limit: envInt("MENTOR_RATE_LIMIT", 20),
+    windowMs: envInt("MENTOR_RATE_LIMIT_WINDOW_MS", 60_000)
+  });
+  if (limiter.limited) {
+    return NextResponse.json(
+      { error: "Too many mentor requests. Please wait a moment and try again." },
+      { status: 429, headers: limiter.headers }
+    );
+  }
+
   if (!process.env.GROQ_API_KEY) {
     return NextResponse.json({ error: "Missing GROQ_API_KEY." }, { status: 500 });
   }

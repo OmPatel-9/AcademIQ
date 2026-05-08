@@ -1,500 +1,43 @@
 "use client";
 
-import {
-  Activity,
-  ArrowRight,
-  BookOpen,
-  Briefcase,
-  CheckCircle2,
-  ChevronDown,
-  Download,
-  FileText,
-  GraduationCap,
-  History,
-  Home,
-  Layers,
-  Library,
-  ListChecks,
-  LogIn,
-  LogOut,
-  Map,
-  MessageCircle,
-  Moon,
-  Package,
-  Paperclip,
-  PencilRuler,
-  Plus,
-  Printer,
-  Route,
-  Search,
-  Send,
-  Settings,
-  Sparkles,
-  Sun,
-  UserCircle,
-  UserPlus
-} from "lucide-react";
-import type { ChangeEvent, FormEvent, ReactNode } from "react";
+import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
-import type { LucideIcon } from "lucide-react";
-
-type ThemeMode = "light" | "dark";
-type Difficulty = "Beginner" | "Intermediate" | "Advanced";
-type AuthStatus = "checking" | "loading" | "ready";
-type AccountMode = "guest" | "google";
-type TabKey =
-  | "professor"
-  | "roadmap"
-  | "resources"
-  | "practice"
-  | "quiz"
-  | "progress"
-  | "projects"
-  | "flashcards"
-  | "mindmap"
-  | "exports"
-  | "googleDocs";
-
-type UserAccount = {
-  mode: AccountMode;
-  id: string;
-  name: string;
-  email?: string;
-  avatarUrl?: string;
-  accessToken?: string;
-  refreshToken?: string;
-  expiresAt?: number;
-};
-
-type AttachmentPayload = {
-  name: string;
-  type: string;
-  size: number;
-  content?: string;
-};
-
-type ResourceItem = {
-  title: string;
-  type: string;
-  why: string;
-  citation: string;
-};
-
-type VideoItem = {
-  title: string;
-  channel: string;
-  url: string;
-};
-
-type QuizItem = {
-  question: string;
-  choices: string[];
-  answer: string;
-  explanation: string;
-};
-
-type FlashcardItem = {
-  front: string;
-  back: string;
-  tags?: string;
-};
-
-type StudyPack = {
-  id: string;
-  title: string;
-  topic: string;
-  subject: string;
-  difficulty: string;
-  learningStyle: string;
-  selectedAgent: string;
-  summary: string;
-  professor: string;
-  advisor: string;
-  librarian: string;
-  assistant: string;
-  resources: ResourceItem[];
-  quiz: QuizItem[];
-  flashcards: FlashcardItem[];
-  projects: string[];
-  progressTopics: string[];
-  learnedTopics: string[];
-  completionPercent: number;
-  youtube: VideoItem[];
-  integrationNotes: string[];
-  mentorNextStep: string;
-  googleDocs: Record<string, string>;
-  createdAt: string;
-  updatedAt: string;
-};
-
-type ChatMessage = {
-  role: "user" | "assistant";
-  content: string;
-  createdAt: string;
-};
-
-type Session = {
-  id: string;
-  userId: string;
-  title: string;
-  pack: StudyPack | null;
-  messages: ChatMessage[];
-  createdAt: string;
-  updatedAt: string;
-};
-
-type NavItem = {
-  label: string;
-  Icon: LucideIcon;
-};
-
-type AgentCard = {
-  title: string;
-  role: string;
-  Icon: LucideIcon;
-};
-
-const navItems: NavItem[] = [
-  { label: "Home", Icon: Home },
-  { label: "Chat", Icon: MessageCircle },
-  { label: "Study Packs", Icon: Package },
-  { label: "Roadmaps", Icon: Map },
-  { label: "Resources", Icon: Library },
-  { label: "Practice", Icon: Activity },
-  { label: "Flashcards", Icon: Layers },
-  { label: "Projects", Icon: Briefcase },
-  { label: "Quizzes", Icon: ListChecks },
-  { label: "History", Icon: History },
-  { label: "Settings", Icon: Settings },
-  { label: "Profile", Icon: UserCircle }
-];
-
-const agents: AgentCard[] = [
-  { title: "Professor", role: "Core lesson and explanations", Icon: BookOpen },
-  { title: "Academic Advisor", role: "Learning path and milestones", Icon: Route },
-  { title: "Research Librarian", role: "Resources and citations", Icon: Library },
-  { title: "Teaching Assistant", role: "Practice and worked solutions", Icon: PencilRuler },
-  { title: "Flashcard Agent", role: "Recall cards for review", Icon: Layers },
-  { title: "Project Idea Agent", role: "Portfolio-ready project prompts", Icon: Briefcase },
-  { title: "Quiz Generator", role: "Checks and explanations", Icon: CheckCircle2 },
-  { title: "Mentor Agent", role: "Follow-up tutoring", Icon: MessageCircle }
-];
-
-const tabs: { key: TabKey; label: string }[] = [
-  { key: "professor", label: "Professor" },
-  { key: "roadmap", label: "Roadmap" },
-  { key: "resources", label: "Resources" },
-  { key: "practice", label: "Practice" },
-  { key: "quiz", label: "Quiz" },
-  { key: "progress", label: "Progress" },
-  { key: "projects", label: "Projects" },
-  { key: "flashcards", label: "Flashcards" },
-  { key: "mindmap", label: "Mind Map" },
-  { key: "exports", label: "Exports" },
-  { key: "googleDocs", label: "Google Docs" }
-];
-
-const quickStarts = [
-  "Generate a complete study pack on Python",
-  "Create a beginner roadmap for machine learning",
-  "Quiz me on networking fundamentals",
-  "Make flashcards from my uploaded notes"
-];
-
-const subjects = [
-  "General Tutor",
-  "Computer Science",
-  "Mathematics",
-  "Data Science",
-  "Writing Coach",
-  "Business",
-  "Exam Prep"
-];
-
-const learningStyles = ["Step-by-step", "Visual", "Socratic", "Practice-first"];
-const difficulties: Difficulty[] = ["Beginner", "Intermediate", "Advanced"];
-const GOOGLE_ACCOUNT_KEY = "academiq_google_account_v1";
-const GUEST_ACCOUNT_KEY = "academiq_guest_account_v1";
-const THEME_KEY = "academiq_theme_v1";
-const BRAND_LOGO_SRC = "/logo.png";
-
-function guestSessionsKey(userId: string) {
-  return `academiq_guest_sessions_${userId}`;
-}
-
-function makeId() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-function newSession(userId = "guest"): Session {
-  const now = new Date().toISOString();
-  return {
-    id: makeId(),
-    userId,
-    title: "New study session",
-    pack: null,
-    messages: [],
-    createdAt: now,
-    updatedAt: now
-  };
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit"
-  }).format(new Date(value));
-}
-
-function normalizeSessions(value: unknown): Session[] {
-  return Array.isArray(value) ? (value as Session[]).filter((item) => item?.id) : [];
-}
-
-function readJson<T>(storage: Storage, key: string): T | null {
-  try {
-    const item = storage.getItem(key);
-    return item ? (JSON.parse(item) as T) : null;
-  } catch {
-    return null;
-  }
-}
-
-function readStoredSessions(storage: Storage, key: string) {
-  return normalizeSessions(readJson<unknown>(storage, key));
-}
-
-function clearOAuthUrl() {
-  window.history.replaceState({}, document.title, window.location.pathname);
-}
-
-function packToMarkdown(pack: StudyPack) {
-  const resources = pack.resources
-    .map((item) => `- **${item.title}** (${item.type}) - ${item.why}\n  Citation: ${item.citation}`)
-    .join("\n");
-  const videos = pack.youtube.map((video) => `- [${video.title}](${video.url}) - ${video.channel}`).join("\n");
-  const quiz = pack.quiz
-    .map((item, index) => `${index + 1}. ${item.question}\n   Answer: ${item.answer}\n   ${item.explanation}`)
-    .join("\n\n");
-  const flashcards = pack.flashcards
-    .map((item) => `- Front: ${item.front}\n  Back: ${item.back}\n  Tags: ${item.tags || "academiq"}`)
-    .join("\n");
-
-  return `# ${pack.topic}
-
-Difficulty: ${pack.difficulty}
-Subject: ${pack.subject}
-Learning style: ${pack.learningStyle}
-
-## Summary
-${pack.summary}
-
-## Professor
-${pack.professor}
-
-## Roadmap
-${pack.advisor}
-
-## Resources
-${pack.librarian}
-
-${resources}
-
-## YouTube Tutorials
-${videos || "No YouTube tutorials available."}
-
-## Practice
-${pack.assistant}
-
-## Quiz
-${quiz}
-
-## Flashcards
-${flashcards}
-
-## Projects
-${pack.projects.map((item) => `- ${item}`).join("\n")}
-`;
-}
-
-function flashcardsCsv(pack: StudyPack) {
-  const rows = pack.flashcards.map((card) =>
-    [card.front, card.back, card.tags || pack.topic]
-      .map((value) => `"${String(value).replaceAll('"', '""')}"`)
-      .join(",")
-  );
-  return `"Front","Back","Tags"\n${rows.join("\n")}`;
-}
-
-function htmlEscape(value: string) {
-  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
-}
-
-function mindMapHtml(pack: StudyPack) {
-  const nodes = ["Professor", "Roadmap", "Resources", "Practice", "Quiz", "Projects", "Flashcards"]
-    .map((label) => `<div class="node">${label}</div>`)
-    .join("");
-  return `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>${htmlEscape(pack.topic)} Mind Map</title>
-  <style>
-    body { margin: 0; font-family: Inter, system-ui, sans-serif; background: #f4f6f5; color: #161716; }
-    main { min-height: 100vh; display: grid; place-items: center; padding: 32px; }
-    .map { width: min(920px, 100%); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-    .root, .node { border-radius: 8px; padding: 24px; text-align: center; border: 1px solid #d9dfdc; background: #ffffff; }
-    .root { grid-column: 1 / -1; background: #193f36; color: #ffffff; font-size: 28px; font-weight: 800; }
-    @media (max-width: 720px) { .map { grid-template-columns: 1fr; } }
-  </style>
-</head>
-<body>
-  <main>
-    <section class="map">
-      <div class="root">${htmlEscape(pack.topic)}</div>
-      ${nodes}
-    </section>
-  </main>
-</body>
-</html>`;
-}
-
-function downloadText(filename: string, content: string, mime = "text/plain") {
-  const blob = new Blob([content], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
-async function readAttachment(file: File): Promise<AttachmentPayload> {
-  const base = { name: file.name, type: file.type || "unknown", size: file.size };
-  const readableText = file.type.startsWith("text/") || /\.(txt|md|csv|json)$/i.test(file.name);
-  if (!readableText) {
-    return base;
-  }
-  const content = await file.text();
-  return { ...base, content: content.slice(0, 12000) };
-}
-
-function renderInlineMarkdown(text: string) {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((part, index): ReactNode => {
-    if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={`${part}-${index}`}>{part.slice(2, -2)}</strong>;
-    }
-    return part;
-  });
-}
-
-function BrandLogo() {
-  return <img alt="" className="brand-logo" src={BRAND_LOGO_SRC} />;
-}
-
-function MarkdownBlock({ children }: { children: string }) {
-  const blocks = children
-    .trim()
-    .split(/\n{2,}/)
-    .map((block) => block.trim())
-    .filter(Boolean);
-
-  if (!blocks.length) {
-    return (
-      <div className="markdown-block">
-        <p>No content generated yet.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="markdown-block">
-      {blocks.map((block, index) => {
-        const lines = block
-          .split("\n")
-          .map((line) => line.trim())
-          .filter(Boolean);
-        const headingMatch = lines[0]?.match(/^#{1,3}\s+(.+)/);
-        const bulletLines = lines.filter((line) => /^[-*]\s+/.test(line));
-        const numberedLines = lines.filter((line) => /^\d+[.)]\s+/.test(line));
-
-        if (headingMatch && lines.length === 1) {
-          return <h3 key={`${block}-${index}`}>{renderInlineMarkdown(headingMatch[1])}</h3>;
-        }
-
-        if (headingMatch) {
-          return (
-            <section className="markdown-section" key={`${block}-${index}`}>
-              <h3>{renderInlineMarkdown(headingMatch[1])}</h3>
-              <p>{renderInlineMarkdown(lines.slice(1).join("\n"))}</p>
-            </section>
-          );
-        }
-
-        if (bulletLines.length === lines.length) {
-          return (
-            <ul key={`${block}-${index}`}>
-              {lines.map((line) => (
-                <li key={line}>{renderInlineMarkdown(line.replace(/^[-*]\s+/, ""))}</li>
-              ))}
-            </ul>
-          );
-        }
-
-        if (numberedLines.length === lines.length) {
-          return (
-            <ol key={`${block}-${index}`}>
-              {lines.map((line) => (
-                <li key={line}>{renderInlineMarkdown(line.replace(/^\d+[.)]\s+/, ""))}</li>
-              ))}
-            </ol>
-          );
-        }
-
-        return <p key={`${block}-${index}`}>{renderInlineMarkdown(lines.join("\n"))}</p>;
-      })}
-    </div>
-  );
-}
-
-function ListBlock({ items, empty }: { items: string[]; empty: string }) {
-  if (!items.length) {
-    return <p className="muted">{empty}</p>;
-  }
-  return (
-    <ul className="clean-list">
-      {items.map((item, index) => (
-        <li key={`${item}-${index}`}>{item}</li>
-      ))}
-    </ul>
-  );
-}
-
-function ThemeToggle({ theme, onToggle }: { theme: ThemeMode; onToggle: () => void }) {
-  const nextTheme = theme === "dark" ? "light" : "dark";
-  const Icon = theme === "dark" ? Sun : Moon;
-  const label = nextTheme === "dark" ? "Dark mode" : "Light mode";
-
-  return (
-    <button
-      className="theme-toggle"
-      type="button"
-      onClick={onToggle}
-      aria-label={`Switch to ${label}`}
-      title={`Switch to ${label}`}
-    >
-      <Icon size={17} />
-      <span>{label}</span>
-    </button>
-  );
-}
+import { AgentSection } from "./components/AgentSection";
+import { LandingScreen } from "./components/LandingScreen";
+import { LoadingScreen } from "./components/LoadingScreen";
+import { MentorChat } from "./components/MentorChat";
+import { PackHeader } from "./components/PackHeader";
+import { PromptPanel } from "./components/PromptPanel";
+import { QuickStartSection } from "./components/QuickStartSection";
+import { Sidebar } from "./components/Sidebar";
+import { StudyPackTabs } from "./components/StudyPackTabs";
+import { Topbar } from "./components/Topbar";
+import { WelcomeHero } from "./components/WelcomeHero";
+import { WorkspaceLoading } from "./components/WorkspaceLoading";
+import {
+  agents,
+  GOOGLE_ACCOUNT_KEY,
+  GUEST_ACCOUNT_KEY,
+  learningStyles,
+  NAV_LABEL_TO_TAB,
+  subjects,
+  TAB_TO_NAV_LABEL,
+  THEME_KEY
+} from "./lib/constants";
+import {
+  clearOAuthUrl,
+  guestSessionsKey,
+  makeId,
+  newSession,
+  normalizeSessions,
+  readAttachment,
+  readJson,
+  readStoredSessions
+} from "./lib/client-utils";
+import type { AuthStatus, ChatMessage, Difficulty, Session, StudyPack, TabKey, UserAccount } from "./lib/types";
 
 export default function HomePage() {
-  const [theme, setTheme] = useState<ThemeMode>("light");
+  const [theme, setTheme] = useState<"light" | "dark">("light");
   const [themeReady, setThemeReady] = useState(false);
   const [account, setAccount] = useState<UserAccount | null>(null);
   const [authStatus, setAuthStatus] = useState<AuthStatus>("checking");
@@ -510,8 +53,9 @@ export default function HomePage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [currentSession, setCurrentSession] = useState<Session>(() => newSession());
   const [activeTab, setActiveTab] = useState<TabKey>("professor");
+  const [activeNavLabel, setActiveNavLabel] = useState("Home");
   const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
-  const [quizScore, setQuizScore] = useState<string>("");
+  const [quizScore, setQuizScore] = useState("");
   const [mentorQuestion, setMentorQuestion] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isMentorLoading, setIsMentorLoading] = useState(false);
@@ -551,6 +95,7 @@ export default function HomePage() {
 
     async function restoreAccount() {
       setAuthStatus("checking");
+      localStorage.removeItem(GOOGLE_ACCOUNT_KEY);
 
       const query = new URLSearchParams(window.location.search);
       const queryError = query.get("auth_error");
@@ -587,7 +132,7 @@ export default function HomePage() {
             expiresAt: Date.now() + Math.max(expiresIn - 60, 60) * 1000
           };
 
-          localStorage.setItem(GOOGLE_ACCOUNT_KEY, JSON.stringify(nextAccount));
+          sessionStorage.setItem(GOOGLE_ACCOUNT_KEY, JSON.stringify(nextAccount));
           sessionStorage.removeItem(GUEST_ACCOUNT_KEY);
           if (!cancelled) {
             setAccount(nextAccount);
@@ -605,10 +150,10 @@ export default function HomePage() {
         }
       }
 
-      const savedGoogle = readJson<UserAccount>(localStorage, GOOGLE_ACCOUNT_KEY);
+      const savedGoogle = readJson<UserAccount>(sessionStorage, GOOGLE_ACCOUNT_KEY);
       if (savedGoogle?.mode === "google" && savedGoogle.accessToken) {
         if (savedGoogle.expiresAt && savedGoogle.expiresAt <= Date.now()) {
-          localStorage.removeItem(GOOGLE_ACCOUNT_KEY);
+          sessionStorage.removeItem(GOOGLE_ACCOUNT_KEY);
           setAuthMessage("Your Google session expired. Sign in again to see your saved chats.");
         } else if (!cancelled) {
           setAccount(savedGoogle);
@@ -646,6 +191,7 @@ export default function HomePage() {
       setQuizScore("");
       setQuizAnswers({});
       setSearchTerm("");
+      setActiveNavLabel("Home");
 
       if (account.mode === "guest") {
         setSupabaseEnabled(false);
@@ -653,6 +199,7 @@ export default function HomePage() {
         if (!cancelled) {
           setSessions(localSessions);
           setCurrentSession(localSessions[0] || newSession(account.id));
+          setActiveNavLabel(localSessions[0]?.pack ? "Study Packs" : "Home");
         }
         return;
       }
@@ -676,12 +223,14 @@ export default function HomePage() {
           setSupabaseEnabled(Boolean(payload.enabled));
           setSessions(cloudSessions);
           setCurrentSession(cloudSessions[0] || newSession(account.id));
+          setActiveNavLabel(cloudSessions[0]?.pack ? "Study Packs" : "Home");
         }
       } catch (caughtError) {
         if (!cancelled) {
           setSupabaseEnabled(false);
           setSessions([]);
           setCurrentSession(newSession(account.id));
+          setActiveNavLabel("Home");
           setError(caughtError instanceof Error ? caughtError.message : "Saved chats could not be loaded.");
         }
       }
@@ -705,6 +254,7 @@ export default function HomePage() {
     setAuthMessage("");
     setSessions([]);
     setCurrentSession(newSession(guestAccount.id));
+    setActiveNavLabel("Home");
   }
 
   function startGoogleSignIn() {
@@ -716,6 +266,7 @@ export default function HomePage() {
       sessionStorage.removeItem(guestSessionsKey(account.id));
     }
     sessionStorage.removeItem(GUEST_ACCOUNT_KEY);
+    sessionStorage.removeItem(GOOGLE_ACCOUNT_KEY);
     localStorage.removeItem(GOOGLE_ACCOUNT_KEY);
     setAccount(null);
     setSessions([]);
@@ -726,6 +277,7 @@ export default function HomePage() {
     setQuizScore("");
     setQuizAnswers({});
     setActiveTab("professor");
+    setActiveNavLabel("Home");
     setAuthStatus("ready");
   }
 
@@ -773,32 +325,43 @@ export default function HomePage() {
     setQuizScore("");
     setQuizAnswers({});
     setActiveTab("professor");
+    setActiveNavLabel("Home");
+  }
+
+  function selectSession(session: Session) {
+    setCurrentSession(session);
+    setQuizScore("");
+    setQuizAnswers({});
+    setActiveTab("professor");
+    setActiveNavLabel(session.pack ? "Study Packs" : "Home");
   }
 
   function handleFiles(event: ChangeEvent<HTMLInputElement>) {
     setFiles(Array.from(event.target.files || []));
   }
 
+  function handleTabChange(tab: TabKey) {
+    setActiveTab(tab);
+    setActiveNavLabel(TAB_TO_NAV_LABEL[tab] || "Study Packs");
+  }
+
   function handleNav(label: string) {
+    setActiveNavLabel(label);
     if (label === "Home") {
       resetSession();
       window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    if (label === "Chat") {
+      document.querySelector(".mentor-panel")?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
     if (label === "History") {
       document.querySelector(".history-panel")?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
-    const mapLabelToTab: Partial<Record<string, TabKey>> = {
-      "Study Packs": "professor",
-      Roadmaps: "roadmap",
-      Resources: "resources",
-      Practice: "practice",
-      Flashcards: "flashcards",
-      Projects: "projects",
-      Quizzes: "quiz"
-    };
-    const tab = mapLabelToTab[label];
+
+    const tab = NAV_LABEL_TO_TAB[label];
     if (tab && studyPack) {
       setActiveTab(tab);
       document.getElementById("study-pack")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -855,6 +418,7 @@ export default function HomePage() {
       setPrompt("");
       setFiles([]);
       setActiveTab("professor");
+      setActiveNavLabel("Study Packs");
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Something went wrong.");
     } finally {
@@ -869,6 +433,7 @@ export default function HomePage() {
     }
     setIsMentorLoading(true);
     setError("");
+    setActiveNavLabel("Chat");
     try {
       const response = await fetch("/api/mentor", {
         method: "POST",
@@ -923,28 +488,32 @@ export default function HomePage() {
     setQuizScore(`${correct}/${studyPack.quiz.length}`);
   }
 
-  async function createGoogleDoc(section: string, markdown: string) {
+  function createGoogleDoc(section: string, markdown: string) {
     if (!studyPack) {
       return;
     }
     setError("");
-    const response = await fetch("/api/google-doc", {
+    fetch("/api/google-doc", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title: `[${section}] ${studyPack.topic}`, markdown })
-    });
-    const payload = await response.json();
-    if (!response.ok) {
-      setError(payload.error || "Google Docs export failed.");
-      return;
-    }
-    persistSession({
-      ...currentSession,
-      pack: {
-        ...studyPack,
-        googleDocs: { ...studyPack.googleDocs, [section]: payload.url }
-      }
-    });
+    })
+      .then(async (response) => {
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.error || "Google Docs export failed.");
+        }
+        persistSession({
+          ...currentSession,
+          pack: {
+            ...studyPack,
+            googleDocs: { ...studyPack.googleDocs, [section]: payload.url }
+          }
+        });
+      })
+      .catch((caughtError) => {
+        setError(caughtError instanceof Error ? caughtError.message : "Google Docs export failed.");
+      });
   }
 
   function printStudyPack() {
@@ -955,524 +524,107 @@ export default function HomePage() {
     setTheme((current) => (current === "dark" ? "light" : "dark"));
   }
 
-  function renderTab() {
-    if (!studyPack) {
-      return null;
-    }
-
-    if (activeTab === "professor") {
-      return <MarkdownBlock>{studyPack.professor}</MarkdownBlock>;
-    }
-    if (activeTab === "roadmap") {
-      return <MarkdownBlock>{studyPack.advisor}</MarkdownBlock>;
-    }
-    if (activeTab === "resources") {
-      return (
-        <div className="tab-stack">
-          <MarkdownBlock>{studyPack.librarian}</MarkdownBlock>
-          <div className="resource-row full">
-            {studyPack.resources.map((resource, index) => (
-              <div className="resource-card" key={`${resource.title}-${index}`}>
-                <strong>{resource.title}</strong>
-                <span>{resource.type}</span>
-                <p>{resource.why}</p>
-                <small>{resource.citation}</small>
-              </div>
-            ))}
-          </div>
-          <h3>YouTube Tutorials</h3>
-          {studyPack.youtube.length ? (
-            <ul className="clean-list">
-              {studyPack.youtube.map((video) => (
-                <li key={video.url}>
-                  <a href={video.url} target="_blank" rel="noreferrer">
-                    {video.title}
-                  </a>{" "}
-                  - {video.channel}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="muted">Add `YOUTUBE_API_KEY` to enable video search.</p>
-          )}
-        </div>
-      );
-    }
-    if (activeTab === "practice") {
-      return <MarkdownBlock>{studyPack.assistant}</MarkdownBlock>;
-    }
-    if (activeTab === "quiz") {
-      return (
-        <div className="quiz-list">
-          {studyPack.quiz.map((question, index) => (
-            <fieldset key={question.question}>
-              <legend>
-                {index + 1}. {question.question}
-              </legend>
-              {question.choices.map((choice) => (
-                <label key={choice}>
-                  <input
-                    checked={quizAnswers[index] === choice}
-                    name={`quiz-${index}`}
-                    onChange={() => setQuizAnswers((current) => ({ ...current, [index]: choice }))}
-                    type="radio"
-                  />
-                  <span>{choice}</span>
-                </label>
-              ))}
-              {quizScore ? (
-                <p className="muted">
-                  Answer: {question.answer}. {question.explanation}
-                </p>
-              ) : null}
-            </fieldset>
-          ))}
-          <div className="inline-actions">
-            <button className="primary-button inline" onClick={gradeQuiz} type="button">
-              Grade quiz
-            </button>
-            {quizScore ? <strong className="score-pill">Score: {quizScore}</strong> : null}
-          </div>
-        </div>
-      );
-    }
-    if (activeTab === "progress") {
-      return (
-        <div className="progress-panel">
-          <div className="progress-bar">
-            <span style={{ width: `${studyPack.completionPercent}%` }} />
-          </div>
-          <strong>{studyPack.completionPercent}% complete</strong>
-          {studyPack.progressTopics.map((topic) => (
-            <label className="progress-item" key={topic}>
-              <input
-                checked={studyPack.learnedTopics.includes(topic)}
-                onChange={() => toggleProgress(topic)}
-                type="checkbox"
-              />
-              <span>{topic}</span>
-            </label>
-          ))}
-        </div>
-      );
-    }
-    if (activeTab === "projects") {
-      return <ListBlock items={studyPack.projects} empty="No projects generated yet." />;
-    }
-    if (activeTab === "flashcards") {
-      return (
-        <div className="flashcard-grid">
-          {studyPack.flashcards.map((card, index) => (
-            <div className="flashcard" key={`${card.front}-${index}`}>
-              <strong>{card.front}</strong>
-              <p>{card.back}</p>
-              <small>{card.tags || studyPack.topic}</small>
-            </div>
-          ))}
-        </div>
-      );
-    }
-    if (activeTab === "mindmap") {
-      return (
-        <div className="mind-map">
-          <div className="mind-node root">{studyPack.topic}</div>
-          {["Professor", "Roadmap", "Resources", "Practice", "Quiz", "Projects", "Flashcards"].map((label) => (
-            <div className="mind-node" key={label}>
-              {label}
-            </div>
-          ))}
-        </div>
-      );
-    }
-    if (activeTab === "exports") {
-      return (
-        <div className="export-grid">
-          <button onClick={() => downloadText(`${studyPack.topic}.md`, packToMarkdown(studyPack), "text/markdown")} type="button">
-            <Download size={18} /> Markdown
-          </button>
-          <button onClick={() => downloadText(`${studyPack.topic}_anki.csv`, flashcardsCsv(studyPack), "text/csv")} type="button">
-            <Download size={18} /> Anki CSV
-          </button>
-          <button onClick={() => downloadText(`${studyPack.topic}_mind_map.html`, mindMapHtml(studyPack), "text/html")} type="button">
-            <Download size={18} /> Mind map HTML
-          </button>
-          <button onClick={printStudyPack} type="button">
-            <Printer size={18} /> Print / Save PDF
-          </button>
-        </div>
-      );
-    }
-    return (
-      <div className="export-grid">
-        {[
-          ["Professor", studyPack.professor],
-          ["Roadmap", studyPack.advisor],
-          ["Resources", studyPack.librarian],
-          ["Practice", studyPack.assistant],
-          ["Projects", studyPack.projects.join("\n\n")],
-          ["Full Study Pack", packToMarkdown(studyPack)]
-        ].map(([section, markdown]) => (
-          <button key={section} onClick={() => createGoogleDoc(section, markdown)} type="button">
-            <FileText size={18} /> Create {section} Doc
-          </button>
-        ))}
-        {Object.entries(studyPack.googleDocs).map(([section, url]) => (
-          <a className="doc-link" href={url} key={section} rel="noreferrer" target="_blank">
-            Open {section}
-          </a>
-        ))}
-      </div>
-    );
+  function inviteByEmail() {
+    window.location.href = "mailto:?subject=Join me on AcademIQ&body=I am using AcademIQ for studying.";
   }
 
   if (authStatus === "checking" || authStatus === "loading") {
-    return (
-      <main className={`landing-shell ${theme}`}>
-        <div className="loading-card">
-          <BrandLogo />
-          <strong>{authStatus === "loading" ? "Finishing Google sign-in..." : "Opening AcademIQ..."}</strong>
-        </div>
-      </main>
-    );
+    return <LoadingScreen authStatus={authStatus} theme={theme} />;
   }
 
   if (!account) {
     return (
-      <main className={`landing-shell ${theme}`}>
-        <header className="landing-topbar">
-          <div className="landing-brand">
-            <BrandLogo />
-            <strong>AcademIQ</strong>
-          </div>
-          <ThemeToggle theme={theme} onToggle={toggleTheme} />
-        </header>
-
-        <section className="landing-hero">
-          <div className="landing-copy">
-            <span className="eyebrow">Study workspace</span>
-            <h1>Build a study pack in minutes.</h1>
-            <p>
-              Start as a guest for a temporary workspace, or sign in with Google to keep your chats and study packs.
-            </p>
-            {authMessage ? <p className="auth-message">{authMessage}</p> : null}
-            <div className="auth-actions">
-              <button className="primary-button large" onClick={startGoogleSignIn} type="button">
-                <LogIn size={18} />
-                Continue with Google
-              </button>
-              <button className="soft-button large" onClick={startGuest} type="button">
-                <UserCircle size={18} />
-                Continue as guest
-              </button>
-            </div>
-          </div>
-
-          <div className="product-preview" aria-label="AcademIQ workspace preview">
-            <div className="preview-window">
-              <div className="preview-top">
-                <span />
-                <span />
-                <span />
-              </div>
-              <div className="preview-content">
-                <div className="preview-sidebar">
-                  <strong>AcademIQ</strong>
-                  <span />
-                  <span />
-                  <span />
-                </div>
-                <div className="preview-main">
-                  <div className="preview-heading">
-                    <span>Data Science</span>
-                    <strong>Beginner roadmap</strong>
-                  </div>
-                  <div className="preview-prompt">
-                    <p>Explain regression with practice problems</p>
-                    <button type="button">
-                      <ArrowRight size={16} />
-                    </button>
-                  </div>
-                  <div className="preview-grid">
-                    <span>Lesson</span>
-                    <span>Quiz</span>
-                    <span>Flashcards</span>
-                    <span>Project</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
+      <LandingScreen
+        authMessage={authMessage}
+        theme={theme}
+        onGoogleSignIn={startGoogleSignIn}
+        onGuestStart={startGuest}
+        onToggleTheme={toggleTheme}
+      />
     );
   }
 
   return (
     <main className={`app-shell ${theme}`}>
-      <aside className="sidebar" aria-label="AcademIQ navigation">
-        <div className="brand">
-          <BrandLogo />
-          <div>
-            <strong>AcademIQ</strong>
-            <span>Learning workspace</span>
-          </div>
-        </div>
-
-        <nav className="nav-list">
-          {navItems.map(({ label, Icon }, index) => (
-            <button className={`nav-item ${index === 0 ? "active" : ""}`} key={label} onClick={() => handleNav(label)} type="button">
-              <Icon size={18} strokeWidth={1.8} />
-              <span>{label}</span>
-            </button>
-          ))}
-        </nav>
-
-        <div className="history-panel">
-          <div className="history-title">
-            <History size={16} />
-            <span>History</span>
-            <small>
-              {account.mode === "google" ? (supabaseEnabled ? "Saved" : "Setup") : "Guest"}
-            </small>
-          </div>
-          {filteredSessions.length ? (
-            filteredSessions.slice(0, 8).map((session) => (
-              <button
-                className={`history-item ${session.id === currentSession.id ? "active" : ""}`}
-                key={session.id}
-                onClick={() => {
-                  setCurrentSession(session);
-                  setQuizScore("");
-                  setQuizAnswers({});
-                }}
-                type="button"
-              >
-                <strong>{session.title}</strong>
-                <span>{formatDate(session.updatedAt)}</span>
-              </button>
-            ))
-          ) : (
-            <p className="history-empty">No chats yet.</p>
-          )}
-        </div>
-
-        <div className="profile-chip">
-          {account.avatarUrl ? <img alt="" src={account.avatarUrl} /> : <UserCircle size={22} />}
-          <div>
-            <strong>{account.name}</strong>
-            <span>{account.mode === "google" ? account.email || "Google account" : "Guest session"}</span>
-          </div>
-        </div>
-      </aside>
+      <Sidebar
+        account={account}
+        activeNavLabel={activeNavLabel}
+        currentSessionId={currentSession.id}
+        sessions={filteredSessions}
+        supabaseEnabled={supabaseEnabled}
+        onNavigate={handleNav}
+        onSelectSession={selectSession}
+      />
 
       <section className="workspace">
-        <header className="topbar">
-          <label className="subject-select">
-            <span>Workspace</span>
-            <div className="select-shell">
-              <GraduationCap size={17} />
-              <select value={subject} onChange={(event) => setSubject(event.target.value)}>
-                {subjects.map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
-              </select>
-              <ChevronDown size={16} />
-            </div>
-          </label>
+        <Topbar
+          subject={subject}
+          searchTerm={searchTerm}
+          theme={theme}
+          onSubjectChange={setSubject}
+          onSearchChange={setSearchTerm}
+          onInvite={inviteByEmail}
+          onToggleTheme={toggleTheme}
+          onSignOut={signOut}
+          onNewSession={resetSession}
+        />
 
-          <div className="top-actions">
-            <label className="search-box">
-              <Search size={17} />
-              <input
-                placeholder="Search chats"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-              />
-            </label>
-            <button
-              className="soft-button"
-              type="button"
-              onClick={() => {
-                window.location.href = "mailto:?subject=Join me on AcademIQ&body=I am using AcademIQ for studying.";
-              }}
-            >
-              <UserPlus size={17} />
-              <span>Invite</span>
-            </button>
-            <ThemeToggle theme={theme} onToggle={toggleTheme} />
-            <button className="soft-button" type="button" onClick={signOut}>
-              <LogOut size={17} />
-              <span>Log out</span>
-            </button>
-            <button className="primary-button" type="button" onClick={resetSession}>
-              <Plus size={18} />
-              <span>New session</span>
-            </button>
-          </div>
-        </header>
+        {!studyPack ? <WelcomeHero name={account.name} /> : <PackHeader studyPack={studyPack} quizScore={quizScore} />}
 
-        {!studyPack ? (
-          <section className="hero">
-            <span className="eyebrow">Good afternoon, {account.name.split(" ")[0] || "there"}</span>
-            <h1>What are you studying today?</h1>
-          </section>
-        ) : (
-          <section className="pack-header">
-            <span>{studyPack.selectedAgent}</span>
-            <h1>{studyPack.topic}</h1>
-            <p>{studyPack.summary}</p>
-            <div className="chip-row">
-              <span>Difficulty: {studyPack.difficulty}</span>
-              <span>Progress: {studyPack.completionPercent}%</span>
-              <span>Quiz: {quizScore || "Not taken"}</span>
-              <span>Generated: {formatDate(studyPack.createdAt)}</span>
-            </div>
-          </section>
-        )}
-
-        <form className="prompt-panel" onSubmit={handleSubmit}>
-          <textarea
-            value={prompt}
-            onChange={(event) => setPrompt(event.target.value)}
-            placeholder="Enter a topic, question, or pasted notes."
-            aria-label="Learning request"
-          />
-
-          <div className="prompt-controls">
-            <label className="attach-control">
-              <Paperclip size={17} />
-              <span>{files.length ? `${files.length} attached` : "Attach"}</span>
-              <input type="file" multiple accept=".txt,.md,.csv,.json,.pdf" onChange={handleFiles} />
-            </label>
-
-            <fieldset className="difficulty-control">
-              <legend>Difficulty</legend>
-              <div>
-                {difficulties.map((item) => (
-                  <button
-                    className={difficulty === item ? "selected" : ""}
-                    key={item}
-                    type="button"
-                    onClick={() => setDifficulty(item)}
-                    aria-pressed={difficulty === item}
-                  >
-                    {item}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-
-            <label className="compact-select">
-              <span>Learning style</span>
-              <select value={learningStyle} onChange={(event) => setLearningStyle(event.target.value)}>
-                {learningStyles.map((item) => (
-                  <option key={item}>{item}</option>
-                ))}
-              </select>
-            </label>
-
-            <label className="check-control">
-              <input checked={citations} onChange={(event) => setCitations(event.target.checked)} type="checkbox" />
-              <span>Citations</span>
-            </label>
-
-            <label className="check-control">
-              <input
-                checked={generateStudyPack}
-                onChange={(event) => setGenerateStudyPack(event.target.checked)}
-                type="checkbox"
-              />
-              <span>Study pack</span>
-            </label>
-
-            <button className="send-button" type="submit" aria-label="Send learning request" disabled={isLoading}>
-              <Send size={18} />
-            </button>
-          </div>
-        </form>
+        <PromptPanel
+          citations={citations}
+          difficulty={difficulty}
+          files={files}
+          generateStudyPack={generateStudyPack}
+          isLoading={isLoading}
+          learningStyle={learningStyle}
+          prompt={prompt}
+          onCitationsChange={setCitations}
+          onDifficultyChange={setDifficulty}
+          onFilesChange={handleFiles}
+          onGenerateStudyPackChange={setGenerateStudyPack}
+          onLearningStyleChange={setLearningStyle}
+          onPromptChange={setPrompt}
+          onSubmit={handleSubmit}
+        />
 
         {error ? <p className="error-banner">{error}</p> : null}
-        {studyPack?.integrationNotes.map((note) => <p className="info-banner" key={note}>{note}</p>)}
+        {studyPack?.integrationNotes.map((note) => (
+          <p className="info-banner" key={note}>
+            {note}
+          </p>
+        ))}
 
         {!studyPack ? (
           <>
-            <section className="agent-section">
-              <div className="section-label">Choose a specialist</div>
-              <div className="agent-grid">
-                {agents.map(({ title, role, Icon }) => (
-                  <article className={`agent-card ${selectedAgent === title ? "selected" : ""}`} key={title}>
-                    <div className="agent-icon">
-                      <Icon size={21} />
-                    </div>
-                    <h2>{title}</h2>
-                    <p>{role}</p>
-                    <button type="button" onClick={() => setSelectedAgent(title)}>
-                      {selectedAgent === title ? "Selected" : "Choose"}
-                    </button>
-                  </article>
-                ))}
-              </div>
-            </section>
-
-            <section className="quick-section">
-              <div className="section-label">Quick start</div>
-              <div className="quick-grid">
-                {quickStarts.map((item) => (
-                  <button type="button" key={item} onClick={() => setPrompt(item)}>
-                    {item}
-                  </button>
-                ))}
-              </div>
-            </section>
+            <AgentSection selectedAgent={selectedAgent} onSelectAgent={setSelectedAgent} />
+            <QuickStartSection onPickPrompt={setPrompt} />
           </>
         ) : (
-          <section className="study-pack" id="study-pack">
-            <div className="tabs">
-              {tabs.map((tab) => (
-                <button
-                  className={activeTab === tab.key ? "active" : ""}
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  type="button"
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-            <div className="tab-panel">{renderTab()}</div>
-          </section>
+          <StudyPackTabs
+            activeTab={activeTab}
+            quizAnswers={quizAnswers}
+            quizScore={quizScore}
+            studyPack={studyPack}
+            onCreateGoogleDoc={createGoogleDoc}
+            onGradeQuiz={gradeQuiz}
+            onPrint={printStudyPack}
+            onQuizAnswer={(index, choice) => setQuizAnswers((current) => ({ ...current, [index]: choice }))}
+            onTabChange={handleTabChange}
+            onToggleProgress={toggleProgress}
+          />
         )}
 
-        <section className="mentor-panel">
-          <div className="section-label">Mentor</div>
-          <div className="chat-log">
-            {currentSession.messages.map((message, index) => (
-              <div className={`chat-message ${message.role}`} key={`${message.createdAt}-${index}`}>
-                <strong>{message.role === "user" ? "You" : "AcademIQ"}</strong>
-                <p>{message.content}</p>
-              </div>
-            ))}
-          </div>
-          <form className="mentor-form" onSubmit={askMentor}>
-            <input
-              disabled={!studyPack}
-              placeholder={studyPack ? "Ask a follow-up question..." : "Generate a study pack to unlock follow-up mentoring."}
-              value={mentorQuestion}
-              onChange={(event) => setMentorQuestion(event.target.value)}
-            />
-            <button className="primary-button inline" disabled={!studyPack || isMentorLoading} type="submit">
-              <Sparkles size={17} />
-              Ask mentor
-            </button>
-          </form>
-        </section>
+        <MentorChat
+          isMentorLoading={isMentorLoading}
+          mentorQuestion={mentorQuestion}
+          messages={currentSession.messages}
+          studyPack={studyPack}
+          onMentorQuestionChange={setMentorQuestion}
+          onSubmit={askMentor}
+        />
 
-        {isLoading ? (
-          <div className="loading-state">
-            <selectedAgentCard.Icon size={24} />
-            <strong>{selectedAgentCard.title} is building your workspace...</strong>
-          </div>
-        ) : null}
+        {isLoading ? <WorkspaceLoading agent={selectedAgentCard} /> : null}
       </section>
     </main>
   );

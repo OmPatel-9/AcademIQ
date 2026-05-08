@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { envInt, rateLimit } from "../../lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -298,6 +299,18 @@ ${attachmentContext(body.attachments)}`;
 }
 
 export async function POST(request: Request) {
+  const limiter = rateLimit(request, {
+    namespace: "study-pack",
+    limit: envInt("STUDY_PACK_RATE_LIMIT", 8),
+    windowMs: envInt("STUDY_PACK_RATE_LIMIT_WINDOW_MS", 60_000)
+  });
+  if (limiter.limited) {
+    return NextResponse.json(
+      { error: "Too many study pack requests. Please wait a moment and try again." },
+      { status: 429, headers: limiter.headers }
+    );
+  }
+
   let body: StudyPackRequest;
   try {
     body = (await request.json()) as StudyPackRequest;
